@@ -50,7 +50,7 @@ if "auth" not in st.session_state: st.session_state.auth = False
 if "historial" not in st.session_state: st.session_state.historial = []
 
 if not st.session_state.auth:
-    st.title("🛡️ Acceso Alianza")
+    st.title("🛡️ Acceso al cifrado Enigma de la Alianza")
     usuario = st.text_input("Usuario:")
     password = st.text_input("Contraseña:", type="password")
     if st.button("Iniciar sesión"):
@@ -72,7 +72,8 @@ else:
         f = st.date_input("Fecha")
         txt = st.text_area("Mensaje:")
         if st.button("Ejecutar"):
-            st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar"))
+            resultado = procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar")
+            st.text_area("Resultado (copiar usando icono):", value=resultado, disabled=True)
             
     elif menu == "Historial":
         st.subheader("Historial de mensajes guardados")
@@ -83,10 +84,7 @@ else:
         
         st.write("---")
         for i, m in enumerate(st.session_state.historial):
-            st.info(m)
-            col_copiar, col_borrar = st.columns(2)
-            # El botón de copiar permite al usuario seleccionar y copiar el texto fácilmente
-            if col_copiar.button("Copiar", key=f"copy_{i}"):
-                st.write(f"Mensaje preparado para copiar: `{m}`")
-            if col_borrar.button("Borrar", key=f"del_{i}"):
+            # El uso de text_area con disabled=True habilita el icono de copiar automático
+            st.text_area(f"Mensaje {i+1}", value=m, disabled=True, height=70)
+            if st.button("Borrar este mensaje", key=f"del_{i}"):
                 confirmar_borrado(i)
