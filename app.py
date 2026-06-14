@@ -75,10 +75,12 @@ else:
             st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar"))
             
     elif menu == "Historial":
-        st.subheader("Historial")
-        msg = st.text_input("Nuevo mensaje a guardar:")
+        st.subheader("Gestión de mensajes")
+        # Selector de fecha y texto
+        f_hist = st.date_input("Fecha de cifrado:")
+        msg = st.text_input("Mensaje cifrado:")
         if st.button("Guardar"):
-            st.session_state.historial.append(msg)
+            st.session_state.historial.append(f"[{f_hist}] {msg}")
         
         st.write("---")
         for i, m in enumerate(st.session_state.historial):
