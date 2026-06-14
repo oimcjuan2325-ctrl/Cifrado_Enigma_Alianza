@@ -1,7 +1,7 @@
 import streamlit as st
 import datetime
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE USUARIOS ---
 USUARIOS_VALIDOS = {
     "Juan": "2313", "Asier": "2021", "Jesús": "1365", "Yolanda": "1460",
     "Mikel": "2013", "Gaizka": "9837", "Iñaki": "7467", "Erika": "7562",
@@ -20,29 +20,31 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
     res = ""
     i = 0
     t = texto.upper()
-    
     while i < len(t):
         if not cifrar and i + 1 < len(t) and t[i:i+2] in inv_vocales:
-            res += inv_vocales[t[i:i+2]]
-            i += 2
+            res += inv_vocales[t[i:i+2]]; i += 2
         elif cifrar and t[i] in vocales:
-            res += vocales[t[i]]
-            i += 1
+            res += vocales[t[i]]; i += 1
         elif t[i] in CONSONANTES:
             idx = CONSONANTES.index(t[i])
-            if cifrar:
-                new_idx = (idx + desp) % len(CONSONANTES)
-            else:
-                new_idx = (idx - desp) % len(CONSONANTES)
-            res += CONSONANTES[new_idx]
-            i += 1
-        else:
-            res += t[i]
-            i += 1
+            new_idx = (idx + desp) % len(CONSONANTES) if cifrar else (idx - desp) % len(CONSONANTES)
+            res += CONSONANTES[new_idx]; i += 1
+        else: res += t[i]; i += 1
     return res
 
-# --- INTERFAZ ---
-st.set_page_config(page_title="Enigma Alianza")
+# --- DIÁLOGO DE BORRADO ---
+@st.dialog("¿Desea borrar este mensaje?")
+def confirmar_borrado(index):
+    st.write("Esta acción no se puede deshacer.")
+    col_si, col_no = st.columns(2)
+    if col_si.button("Sí"):
+        st.session_state.historial.pop(index)
+        st.rerun()
+    if col_no.button("No"):
+        st.rerun()
+
+# --- INTERFAZ PRINCIPAL ---
+st.set_page_config(page_title="Enigma Alianza", layout="centered")
 
 if "auth" not in st.session_state: st.session_state.auth = False
 if "historial" not in st.session_state: st.session_state.historial = []
@@ -67,26 +69,28 @@ else:
     menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Historial"])
     
     if menu == "Cifrar":
+        st.subheader("Cifrado de mensajes")
         f = st.date_input("Fecha")
         txt = st.text_area("Texto a cifrar:")
-        if st.button("Ejecutar Cifrado"):
+        if st.button("Ejecutar"):
             st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, True))
             
     elif menu == "Descifrar":
+        st.subheader("Descifrado de mensajes")
         f = st.date_input("Fecha")
         txt = st.text_area("Mensaje a descifrar:")
-        if st.button("Ejecutar Descifrado"):
+        if st.button("Ejecutar"):
             st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, False))
             
     elif menu == "Historial":
-        st.subheader("Gestión de Historial")
-        # Campo para guardar
-        msg_input = st.text_input("Pegar mensaje cifrado para guardar:")
-        if st.button("Guardar en Historial"):
-            st.session_state.historial.append({"Fecha": str(datetime.date.today()), "Mensaje": msg_input})
-            st.success("Mensaje guardado.")
+        st.subheader("Gestión de mensajes")
+        msg = st.text_input("Guardar mensaje (cifrado):")
+        if st.button("Guardar"):
+            st.session_state.historial.append(f"{datetime.date.today()} - {msg}")
         
-        # Tabla separada
         st.divider()
-        st.subheader("Registro de mensajes guardados")
-        st.table(st.session_state.historial)
+        for i, m in enumerate(st.session_state.historial):
+            col1, col2 = st.columns([0.8, 0.2])
+            col1.write(m)
+            if col2.button("Borrar", key=f"del_{i}"):
+                confirmar_borrado(i)
