@@ -14,7 +14,6 @@ CONSONANTES = "BCDFGHJKLMNPQRSTVWXYZÑ"
 
 # --- MOTOR DE CIFRADO ---
 def procesar(texto, mes, dia, es_par, cifrar=True):
-    # Fórmula de desplazamiento única
     desp = (mes + dia + 12) // 2
     vocales = VOCALES_PAR if es_par else VOCALES_IMPAR
     inv_vocales = {v: k for k, v in vocales.items()}
@@ -23,15 +22,12 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
     t = texto.upper()
     
     while i < len(t):
-        # 1. Intentar descifrar vocal (2 dígitos)
         if not cifrar and i + 1 < len(t) and t[i:i+2] in inv_vocales:
             res += inv_vocales[t[i:i+2]]
             i += 2
-        # 2. Cifrar vocal
         elif cifrar and t[i] in vocales:
             res += vocales[t[i]]
             i += 1
-        # 3. Consonantes (Desplazamiento positivo)
         elif t[i] in CONSONANTES:
             idx = CONSONANTES.index(t[i])
             if cifrar:
@@ -49,7 +45,6 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
 st.set_page_config(page_title="Enigma Alianza")
 
 if "auth" not in st.session_state: st.session_state.auth = False
-if "user" not in st.session_state: st.session_state.user = None
 if "historial" not in st.session_state: st.session_state.historial = []
 
 if not st.session_state.auth:
@@ -67,22 +62,31 @@ else:
     st.sidebar.title(f"Operador: {st.session_state.user}")
     if st.sidebar.button("Cerrar sesión"):
         st.session_state.auth = False
-        st.session_state.user = None
         st.rerun()
     
     menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Historial"])
     
-    if menu in ["Cifrar", "Descifrar"]:
+    if menu == "Cifrar":
         f = st.date_input("Fecha")
-        txt = st.text_area("Texto:")
-        if st.button("Ejecutar"):
-            resultado = procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar")
-            st.code(resultado)
+        txt = st.text_area("Texto a cifrar:")
+        if st.button("Ejecutar Cifrado"):
+            st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, True))
+            
+    elif menu == "Descifrar":
+        f = st.date_input("Fecha")
+        txt = st.text_area("Mensaje a descifrar:")
+        if st.button("Ejecutar Descifrado"):
+            st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, False))
             
     elif menu == "Historial":
-        st.subheader("Historial de mensajes")
-        txt = st.text_input("Guardar mensaje (cifrado):")
-        if st.button("Guardar"):
-            st.session_state.historial.append(f"{datetime.date.today()} - {txt}")
-            st.success("Guardado.")
-        st.write(st.session_state.historial)
+        st.subheader("Gestión de Historial")
+        # Campo para guardar
+        msg_input = st.text_input("Pegar mensaje cifrado para guardar:")
+        if st.button("Guardar en Historial"):
+            st.session_state.historial.append({"Fecha": str(datetime.date.today()), "Mensaje": msg_input})
+            st.success("Mensaje guardado.")
+        
+        # Tabla separada
+        st.divider()
+        st.subheader("Registro de mensajes guardados")
+        st.table(st.session_state.historial)
