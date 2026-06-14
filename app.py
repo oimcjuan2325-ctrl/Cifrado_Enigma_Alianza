@@ -1,7 +1,7 @@
 import streamlit as st
 import datetime
 
-# --- CONFIGURACIÓN DE USUARIOS ---
+# --- CONFIGURACIÓN ---
 USUARIOS_VALIDOS = {
     "Juan": "2313", "Asier": "2021", "Jesús": "1365", "Yolanda": "1460",
     "Mikel": "2013", "Gaizka": "9837", "Iñaki": "7467", "Erika": "7562",
@@ -12,7 +12,7 @@ VOCALES_PAR = {'A': '22', 'E': '44', 'I': '88', 'O': '00', 'U': '11'}
 VOCALES_IMPAR = {'A': '11', 'E': '22', 'I': '33', 'O': '44', 'U': '55'}
 CONSONANTES = "BCDFGHJKLMNPQRSTVWXYZÑ"
 
-# --- MOTOR DE CIFRADO ---
+# --- MOTOR ---
 def procesar(texto, mes, dia, es_par, cifrar=True):
     desp = (mes + dia + 12) // 2
     vocales = VOCALES_PAR if es_par else VOCALES_IMPAR
@@ -32,48 +32,38 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
         else: res += t[i]; i += 1
     return res
 
-# --- DIÁLOGO DE BORRADO ---
 @st.dialog("¿Desea borrar este mensaje?")
 def confirmar_borrado(index):
-    st.write("Esta acción es irreversible.")
-    col_si, col_no = st.columns(2)
-    if col_si.button("Sí"):
+    if st.button("Sí"):
         st.session_state.historial.pop(index)
         st.rerun()
-    if col_no.button("No"):
+    if st.button("No"):
         st.rerun()
 
 # --- INTERFAZ ---
 st.set_page_config(page_title="Enigma Alianza", layout="centered")
-
 if "auth" not in st.session_state: st.session_state.auth = False
 if "historial" not in st.session_state: st.session_state.historial = []
 
 if not st.session_state.auth:
     st.title("🛡️ Acceso al cifrado Enigma de la Alianza")
-    usuario = st.text_input("Usuario:")
-    password = st.text_input("Contraseña:", type="password")
+    user = st.text_input("Usuario:")
+    pwd = st.text_input("Contraseña:", type="password")
     if st.button("Iniciar sesión"):
-        if usuario in USUARIOS_VALIDOS and USUARIOS_VALIDOS[usuario] == password:
-            st.session_state.auth = True
-            st.session_state.user = usuario
-            st.rerun()
-        else:
-            st.error("Credenciales incorrectas.")
+        if user in USUARIOS_VALIDOS and USUARIOS_VALIDOS[user] == pwd:
+            st.session_state.auth = True; st.session_state.user = user; st.rerun()
+        else: st.error("Acceso denegado.")
 else:
     st.sidebar.title(f"Operador: {st.session_state.user}")
-    if st.sidebar.button("Cerrar sesión"):
-        st.session_state.auth = False
-        st.rerun()
-    
+    if st.sidebar.button("Cerrar sesión"): st.session_state.auth = False; st.rerun()
     menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Historial"])
     
     if menu in ["Cifrar", "Descifrar"]:
         f = st.date_input("Fecha")
         txt = st.text_area("Mensaje:")
         if st.button("Ejecutar"):
-            resultado = procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar")
-            st.text_area("Resultado (copiar usando icono):", value=resultado, disabled=True)
+            res = procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar")
+            st.code(res) # st.code siempre pone el icono de copiar a la derecha
             
     elif menu == "Historial":
         st.subheader("Historial de mensajes guardados")
@@ -81,10 +71,10 @@ else:
         msg = st.text_input("Nuevo mensaje cifrado:")
         if st.button("Guardar"):
             st.session_state.historial.append(f"[{f_hist}] {msg}")
-        
         st.write("---")
         for i, m in enumerate(st.session_state.historial):
-            # El uso de text_area con disabled=True habilita el icono de copiar automático
-            st.text_area(f"Mensaje {i+1}", value=m, disabled=True, height=70)
-            if st.button("Borrar este mensaje", key=f"del_{i}"):
+            col1, col2 = st.columns([0.85, 0.15])
+            with col1:
+                st.code(m) # También aquí para que tengan el icono de copiar
+            if col2.button("Borrar", key=f"del_{i}"):
                 confirmar_borrado(i)
