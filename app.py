@@ -35,7 +35,7 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
 # --- DIÁLOGO DE BORRADO ---
 @st.dialog("¿Desea borrar este mensaje?")
 def confirmar_borrado(index):
-    st.write("Esta acción no se puede deshacer.")
+    st.write("Esta acción es irreversible.")
     col_si, col_no = st.columns(2)
     if col_si.button("Sí"):
         st.session_state.historial.pop(index)
@@ -43,7 +43,7 @@ def confirmar_borrado(index):
     if col_no.button("No"):
         st.rerun()
 
-# --- INTERFAZ PRINCIPAL ---
+# --- INTERFAZ ---
 st.set_page_config(page_title="Enigma Alianza", layout="centered")
 
 if "auth" not in st.session_state: st.session_state.auth = False
@@ -68,29 +68,21 @@ else:
     
     menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Historial"])
     
-    if menu == "Cifrar":
-        st.subheader("Cifrado de mensajes")
+    if menu in ["Cifrar", "Descifrar"]:
         f = st.date_input("Fecha")
-        txt = st.text_area("Texto a cifrar:")
+        txt = st.text_area("Mensaje:")
         if st.button("Ejecutar"):
-            st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, True))
-            
-    elif menu == "Descifrar":
-        st.subheader("Descifrado de mensajes")
-        f = st.date_input("Fecha")
-        txt = st.text_area("Mensaje a descifrar:")
-        if st.button("Ejecutar"):
-            st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, False))
+            st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar"))
             
     elif menu == "Historial":
-        st.subheader("Gestión de mensajes")
-        msg = st.text_input("Guardar mensaje (cifrado):")
+        st.subheader("Historial")
+        msg = st.text_input("Nuevo mensaje a guardar:")
         if st.button("Guardar"):
-            st.session_state.historial.append(f"{datetime.date.today()} - {msg}")
+            st.session_state.historial.append(msg)
         
-        st.divider()
+        st.write("---")
         for i, m in enumerate(st.session_state.historial):
-            col1, col2 = st.columns([0.8, 0.2])
-            col1.write(m)
+            col1, col2 = st.columns([0.85, 0.15])
+            col1.info(m)
             if col2.button("Borrar", key=f"del_{i}"):
                 confirmar_borrado(i)
