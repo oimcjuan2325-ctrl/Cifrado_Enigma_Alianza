@@ -1,7 +1,14 @@
 import streamlit as st
 import datetime
 
-# --- LÓGICA DEL CIFRADO (Codex Delta/Enigma) ---
+# --- CONFIGURACIÓN DE SEGURIDAD ---
+USUARIOS_VALIDOS = {
+    "Juan": "2313", "Asier": "2021", "Jesús": "1365", "Yolanda": "1460",
+    "Mikel": "2013", "Gaizka": "9837", "Iñaki": "7467", "Erika": "7562",
+    "Nahia": "9786", "Amets": "1053"
+}
+
+# --- LÓGICA DE CIFRADO ---
 VOCALES_PAR = {'A': '22', 'E': '44', 'I': '88', 'O': '00', 'U': '11'}
 VOCALES_IMPAR = {'A': '11', 'E': '22', 'I': '33', 'O': '44', 'U': '55'}
 CONSONANTES = "BCDFGHJKLMNPQRSTVWXYZÑ"
@@ -18,7 +25,6 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
             res += vocales[char]
         elif char in CONSONANTES:
             idx = CONSONANTES.index(char)
-            # Regla: Grupo 1 (0-6) suma, Grupo 2 (7+) resta
             if cifrar:
                 new_idx = (idx + desp) % len(CONSONANTES) if idx < 7 else (idx - desp) % len(CONSONANTES)
             else:
@@ -32,38 +38,49 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
 st.set_page_config(page_title="Enigma Alianza", layout="centered")
 
 if "auth" not in st.session_state: st.session_state.auth = False
+if "user" not in st.session_state: st.session_state.user = None
 if "historial" not in st.session_state: st.session_state.historial = []
 
 if not st.session_state.auth:
-    st.title("🛡️ Iniciar Sesión - Enigma")
-    user = st.text_input("Nombre de cuenta:")
-    password = st.text_input("Palabra secreta:", type="password")
-    if st.button("Entrar"):
-        if password == "CIFRADO ENIGMA":
+    st.title("🛡️ Acceso Alianza - Project Delta")
+    usuario_input = st.text_input("Nombre de cuenta:")
+    pass_input = st.text_input("Contraseña:", type="password")
+    if st.button("Iniciar sesión"):
+        if usuario_input in USUARIOS_VALIDOS and USUARIOS_VALIDOS[usuario_input] == pass_input:
             st.session_state.auth = True
+            st.session_state.user = usuario_input
             st.rerun()
-        else: st.error("Acceso denegado.")
+        else:
+            st.error("Credenciales incorrectas.")
 else:
-    st.sidebar.title("Menú")
-    menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Historial"])
+    st.sidebar.title(f"Operador: {st.session_state.user}")
+    if st.sidebar.button("Cerrar sesión"):
+        st.session_state.auth = False
+        st.rerun()
+        
+    menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Guardar en Historial"])
     
     if menu == "Cifrar":
+        st.subheader("Cifrar mensaje")
         f = st.date_input("Fecha")
         txt = st.text_area("Texto a cifrar:")
-        if st.button("Cifrar"):
+        if st.button("Ejecutar"):
             res = procesar(txt, f.month, f.day, f.day % 2 == 0, True)
-            st.success(f"Resultado: {res}")
+            st.code(res)
             
     elif menu == "Descifrar":
+        st.subheader("Descifrar mensaje")
         f = st.date_input("Fecha de cifrado")
         txt = st.text_area("Mensaje cifrado:")
-        if st.button("Descifrar"):
+        if st.button("Ejecutar"):
             res = procesar(txt, f.month, f.day, f.day % 2 == 0, False)
-            st.info(f"Mensaje original: {res}")
+            st.code(res)
             
-    elif menu == "Historial":
-        f = st.date_input("Fecha del mensaje a guardar")
+    elif menu == "Guardar en Historial":
+        st.subheader("Registro de mensajes")
+        f = st.date_input("Fecha del cifrado")
         txt = st.text_input("Mensaje cifrado:")
-        if st.button("Guardar en Historial"):
-            st.session_state.historial.append({"fecha": str(f), "msg": txt})
+        if st.button("Guardar"):
+            st.session_state.historial.append({"Fecha": str(f), "Mensaje": txt})
+            st.success("Guardado correctamente.")
         st.table(st.session_state.historial)
