@@ -1,7 +1,7 @@
 import streamlit as st
-from streamlit_localstorage import StLocalStorage
+import datetime
 
-# --- CONFIGURACIÓN DE SEGURIDAD ---
+# --- CONFIGURACIÓN DE USUARIOS ---
 USUARIOS_VALIDOS = {
     "Juan": "2313", "Asier": "2021", "Jesús": "1365", "Yolanda": "1460",
     "Mikel": "2013", "Gaizka": "9837", "Iñaki": "7467", "Erika": "7562",
@@ -13,19 +13,16 @@ VOCALES_PAR = {'A': '22', 'E': '44', 'I': '88', 'O': '00', 'U': '11'}
 VOCALES_IMPAR = {'A': '11', 'E': '22', 'I': '33', 'O': '44', 'U': '55'}
 CONSONANTES = "BCDFGHJKLMNPQRSTVWXYZÑ"
 
-def obtener_desplazamiento(mes, dia, es_par):
-    return (mes + dia + 11) // 2 if es_par else (mes + dia + 12) // 2
-
 def procesar(texto, mes, dia, es_par, cifrar=True):
     res = ""
-    desp = obtener_desplazamiento(mes, dia, es_par)
+    desp = (mes + dia + 11) // 2 if es_par else (mes + dia + 12) // 2
     vocales = VOCALES_PAR if es_par else VOCALES_IMPAR
     inv_vocales = {v: k for k, v in vocales.items()}
     
     i = 0
     texto = texto.upper()
     while i < len(texto):
-        if i + 1 < len(texto) and texto[i:i+2] in inv_vocales.values() if cifrar else texto[i:i+2] in inv_vocales:
+        if i + 1 < len(texto) and texto[i:i+2] in (inv_vocales.values() if cifrar else inv_vocales):
             val = texto[i:i+2]
             res += inv_vocales[val] if not cifrar else vocales[val]
             i += 2
@@ -42,11 +39,11 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
             i += 1
     return res
 
-# --- INTERFAZ Y LOCAL STORAGE ---
+# --- INTERFAZ ---
 st.set_page_config(page_title="Enigma Alianza", layout="centered")
-local_storage = StLocalStorage()
 
 if "auth" not in st.session_state: st.session_state.auth = False
+if "historial" not in st.session_state: st.session_state.historial = []
 
 if not st.session_state.auth:
     st.title("🛡️ Acceso Alianza - Project Delta")
@@ -65,7 +62,6 @@ else:
         st.rerun()
     
     menu = st.sidebar.radio("Opciones", ["Cifrar", "Descifrar", "Historial"])
-    key = f"historial_{st.session_state.user}"
     
     if menu == "Cifrar":
         f = st.date_input("Fecha")
@@ -80,10 +76,8 @@ else:
             st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, False))
             
     elif menu == "Historial":
-        st.subheader("Tu historial persistente")
+        st.subheader("Registro de mensajes")
         txt = st.text_input("Mensaje cifrado a guardar:")
         if st.button("Guardar"):
-            historial = local_storage.get(key) or []
-            historial.append(txt)
-            local_storage.set(key, historial)
-        st.write(local_storage.get(key) or "Sin mensajes guardados.")
+            st.session_state.historial.append({"Operador": st.session_state.user, "Mensaje": txt})
+        st.table(st.session_state.historial)
