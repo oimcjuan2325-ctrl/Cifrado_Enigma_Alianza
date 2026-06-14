@@ -75,16 +75,18 @@ else:
             st.code(procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar"))
             
     elif menu == "Historial":
-        st.subheader("Gestión de mensajes")
-        # Selector de fecha y texto
+        st.subheader("Historial de mensajes guardados")
         f_hist = st.date_input("Fecha de cifrado:")
-        msg = st.text_input("Mensaje cifrado:")
+        msg = st.text_input("Nuevo mensaje cifrado:")
         if st.button("Guardar"):
             st.session_state.historial.append(f"[{f_hist}] {msg}")
         
         st.write("---")
         for i, m in enumerate(st.session_state.historial):
-            col1, col2 = st.columns([0.85, 0.15])
-            col1.info(m)
-            if col2.button("Borrar", key=f"del_{i}"):
+            st.info(m)
+            col_copiar, col_borrar = st.columns(2)
+            # El botón de copiar permite al usuario seleccionar y copiar el texto fácilmente
+            if col_copiar.button("Copiar", key=f"copy_{i}"):
+                st.write(f"Mensaje preparado para copiar: `{m}`")
+            if col_borrar.button("Borrar", key=f"del_{i}"):
                 confirmar_borrado(i)
