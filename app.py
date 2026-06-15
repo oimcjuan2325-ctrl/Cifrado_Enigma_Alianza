@@ -1,63 +1,72 @@
 import streamlit as st
+import numpy as np
+import base64
+import time
 
-# --- CONFIGURACIÓN DE USUARIOS ---
-USUARIOS_VALIDOS = {
-    "Juan": "2313", "Asier": "2021", "Jesús": "1365", "Yolanda": "1460",
-    "Mikel": "2013", "Gaizka": "9837", "Iñaki": "7467", "Erika": "7562",
-    "Nahia": "9786", "Amets": "1053"
-}
+# --- LÓGICA DEL MOTOR DE CIFRADO ---
+def obtener_matriz(fecha_str):
+    np.random.seed(int(fecha_str))
+    matriz = np.random.rand(3, 3)
+    q, r = np.linalg.qr(matriz)
+    return q
 
-# --- MOTORES DE CIFRADO ---
-VOCALES_PAR = {'A': '22', 'E': '44', 'I': '88', 'O': '00', 'U': '11'}
-VOCALES_IMPAR = {'A': '11', 'E': '22', 'I': '33', 'O': '44', 'U': '55'}
-CONSONANTES = "BCDFGHJKLMNPQRSTVWXYZÑ"
+def procesar_mensaje(mensaje, fecha_str, modo='cifrar'):
+    matriz = obtener_matriz(fecha_str)
+    estado = np.array([0.0, 0.0, 0.0])
+    resultado = []
+    
+    if modo == 'descifrar':
+        matriz = matriz.T
+        datos = np.frombuffer(base64.b64decode(mensaje), dtype=np.float64).reshape(-1, 3)
+    else:
+        datos = np.array([[ord(c), i, 0] for i, c in enumerate(mensaje)])
 
-def procesar(texto, mes, dia, es_par, cifrar=True):
-    desp = (mes + dia + 12) // 2
-    vocales = VOCALES_PAR if es_par else VOCALES_IMPAR
-    inv_vocales = {v: k for k, v in vocales.items()}
-    res = ""
-    i = 0
-    t = texto.upper()
-    while i < len(t):
-        if not cifrar and i + 1 < len(t) and t[i:i+2] in inv_vocales:
-            res += inv_vocales[t[i:i+2]]; i += 2
-        elif cifrar and t[i] in vocales:
-            res += vocales[t[i]]; i += 1
-        elif t[i] in CONSONANTES:
-            idx = CONSONANTES.index(t[i])
-            new_idx = (idx + desp) % len(CONSONANTES) if cifrar else (idx - desp) % len(CONSONANTES)
-            res += CONSONANTES[new_idx]; i += 1
-        else: res += t[i]; i += 1
-    return res
+    for v in datos:
+        if modo == 'cifrar':
+            v_rotado = np.dot(matriz, v) + estado
+            estado = v_rotado
+            resultado.append(v_rotado)
+        else:
+            v_rotado = np.dot(matriz, (v - estado))
+            estado = v
+            resultado.append(v_rotado)
+            
+    if modo == 'cifrar':
+        return base64.b64encode(np.array(resultado).tobytes()).decode()
+    else:
+        return "".join([chr(int(round(v[0]))) for v in resultado])
 
-# --- INTERFAZ ---
-st.set_page_config(page_title="Enigma Alianza", layout="centered")
+# --- INTERFAZ WEB ---
+st.title("Cifrado Enigma")
 
-if "auth" not in st.session_state: st.session_state.auth = False
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
 
-if not st.session_state.auth:
-    st.title("🛡️ Acceso al cifrado Enigma de la Alianza")
-    usuario = st.text_input("Usuario:")
-    password = st.text_input("PIN:", type="password")
-    if st.button("Iniciar sesión"):
-        if usuario in USUARIOS_VALIDOS and USUARIOS_VALIDOS[usuario] == password:
-            st.session_state.auth = True
-            st.session_state.user = usuario
+if not st.session_state.autenticado:
+    password = st.text_input("Introduzca la palabra secreta:", type="password")
+    if st.button("Acceder"):
+        if password.upper() == "MÁQUINA":
+            # Animación de 3 segundos
+            st.write("Encendiendo rotores de la máquina enigma...")
+            progress_bar = st.progress(0)
+            for i in range(100):
+                time.sleep(0.03) # Total 3 segundos aprox
+                progress_bar.progress(i + 1)
+            
+            st.session_state.autenticado = True
             st.rerun()
         else:
-            st.error("Credenciales incorrectas.")
+            st.error("Acceso denegado.")
 else:
-    st.title(f"Operador: {st.session_state.user}")
-    if st.button("Cerrar sesión"):
-        st.session_state.auth = False
-        st.rerun()
-    
-    st.write("---")
-    menu = st.radio("Acción:", ["Cifrar", "Descifrar"], horizontal=True)
-    f = st.date_input("Fecha de referencia:")
-    txt = st.text_area("Mensaje:")
+    st.header("Máquina Enigma del Cifrado de la Alianza")
+    opcion = st.radio("Seleccione acción:", ["Cifrar mensaje", "Descifrar mensaje"])
+    msg = st.text_area("Mensaje:")
+    fecha = st.date_input("Fecha de referencia:")
     
     if st.button("Ejecutar"):
-        resultado = procesar(txt, f.month, f.day, f.day % 2 == 0, menu == "Cifrar")
-        st.code(resultado)
+        fecha_str = fecha.strftime("%d%m%Y")
+        try:
+            res = procesar_mensaje(msg, fecha_str, 'cifrar' if opcion == "Cifrar mensaje" else 'descifrar')
+            st.text_area("Resultado:", res, height=200)
+        except Exception:
+            st.error("Error: Verifique la fecha y el contenido.")
