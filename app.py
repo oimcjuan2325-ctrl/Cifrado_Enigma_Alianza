@@ -45,7 +45,7 @@ if "autenticado" not in st.session_state:
 if not st.session_state.autenticado:
     password = st.text_input("Introduzca la palabra secreta:", type="password")
     if st.button("Acceder"):
-        if password.upper() == "MÁQUINA":
+        if password.upper() == "MAQUINA":
             # Animación de 3 segundos
             st.write("Encendiendo rotores de la máquina enigma...")
             progress_bar = st.progress(0)
