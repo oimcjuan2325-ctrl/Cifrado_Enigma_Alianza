@@ -1,10 +1,8 @@
 import streamlit as st
 
 # --- CONFIGURACIÓN DE USUARIOS ---
-USUARIOS_VALIDOS = {
-    "Juan": "2313", "Asier": "2021", "Jesús": "1365", "Yolanda": "1460",
-    "Mikel": "2013", "Gaizka": "9837", "Iñaki": "7467", "Erika": "7562",
-    "Nahia": "9786", "Amets": "1053"
+USUARIO_VALIDO = {
+    "CIDRADO ENIGMA": "2026"
 }
 
 # --- MOTORES DE CIFRADO ---
