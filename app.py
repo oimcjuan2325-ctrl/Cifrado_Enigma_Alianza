@@ -32,12 +32,12 @@ def procesar(texto, mes, dia, es_par, cifrar=True):
     return res
 
 # --- INTERFAZ ---
-st.set_page_config(page_title="Enigma Pamplonia", layout="centered")
+st.set_page_config(page_title="Enigma Alianza", layout="centered")
 
 if "auth" not in st.session_state: st.session_state.auth = False
 
 if not st.session_state.auth:
-    st.title("🛡️ Acceso al cifrado Enigma de la República de Pamplonia")
+    st.title("🛡️ Acceso al cifrado Enigma de la Alianza")
     usuario = st.text_input("Usuario:")
     password = st.text_input("PIN:", type="password")
     if st.button("Iniciar sesión"):
