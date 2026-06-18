@@ -1,8 +1,8 @@
 import streamlit as st
 import time
 
-# Configuración
-st.set_page_config(page_title="Sistema de Cifrado Pro", layout="wide")
+# Configuración de página
+st.set_page_config(page_title="Sistema de Cifrado", layout="wide")
 
 # Abecedario
 ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
@@ -14,11 +14,12 @@ def procesar_frase(texto, modo):
     resultados = []
     for palabra in palabras:
         n = len(palabra)
-        # Usamos n como "clave" interna para evitar que el usuario deba ponerla
         if modo == "cifrar":
+            # Álgebra interna + César
             val = sum(CONV.get(palabra[i], 0) * (i + 1) for i in range(n))
             resultados.append(str(val + n))
         else:
+            # Revertir César
             val_sin_cesar = int(palabra) - n
             resultados.append(str(val_sin_cesar))
     return " ".join(resultados)
@@ -29,15 +30,15 @@ if 'intentos' not in st.session_state: st.session_state.intentos = 0
 if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
 
 # --- INTERFAZ ---
-st.title("🔐 Sistema de Cifrado Pro")
+st.title("🔐 Sistema de Cifrado")
 
 if st.session_state.bloqueado:
     st.error("❌ Lo siento, hemos detectado que no eres un usuario apto para utilizar esta web.")
     st.warning("Por favor, espera a que termine la cuenta regresiva antes de poder utilizar otra vez el inicio de sesión.")
-    # Temporizador trampa
+    
     placeholder = st.empty()
-    for i in range(10, 0, -1):
-        placeholder.metric("Tiempo restante:", f"{i} segundos")
+    for i in range(60, 0, -1):
+        placeholder.metric("Tiempo restante para reintento:", f"{i} segundos")
         time.sleep(1)
     placeholder.write("Cuenta regresiva finalizada... pero el acceso sigue denegado por seguridad.")
     st.stop()
@@ -54,7 +55,7 @@ if not st.session_state.logueado:
                 st.session_state.bloqueado = True
                 st.rerun()
             else:
-                st.error(f"Palabra incorrecta, por favor inténtelo de nuevo. (Intento {st.session_state.intentos}/3)")
+                st.error(f"Palabra incorrecta. Por favor, inténtelo de nuevo. (Intento {st.session_state.intentos}/3)")
 else:
     col1, col2 = st.columns(2)
     with col1:
@@ -72,7 +73,10 @@ else:
             if any(char.isalpha() for char in cif_input):
                 st.error("Lo siento, pero esta web no puede procesar letras para el descifrado. Por favor, introduce solo el código numérico.")
             else:
-                st.code(procesar_frase(cif_input, "descifrar"))
+                try:
+                    st.code(procesar_frase(cif_input, "descifrar"))
+                except:
+                    st.error("Error al procesar el código. Verifique los datos.")
 
     if st.button("Cerrar sesión"):
         st.session_state.logueado = False
