@@ -18,7 +18,7 @@ if not st.session_state.logged_in:
     
     # NUEVO: Botón de iniciar sesión solicitado
     if st.button("Iniciar sesión"):
-        if pwd == "máquina":
+        if pwd == "MAQUINA":
             st.session_state.logged_in = True
             st.success("Acceso concedido. Cargando sistema...")
             st.rerun()
