@@ -5,11 +5,9 @@ import numpy as np
 ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
 MAPA_L_N = {l: i for i, l in enumerate(ALFABETO)}
 MAPA_N_L = {i: l for i, l in enumerate(ALFABETO)}
-# Matriz de Hill 2x2 (invertible en módulo 27)
 MATRIZ_HILL = np.array([[3, 2], [1, 1]])
 MATRIZ_INVERSA = np.array([[1, 25], [26, 3]])
 
-# Rotores adaptados a 27 posiciones
 ROTORES = {
     "I":   "EKMFLGDQVZNTOWÑYHXUSPAIBRCJ",
     "II":  "AJDKSIRUXBLHWTMCQGZNPYFVOEÑ",
@@ -38,7 +36,6 @@ def procesar_total(texto, modo, config):
     
     if modo == "cifrar":
         if len(texto_limpio) % 2 != 0: texto_limpio += "X"
-        # 1. Clavijero -> 2. Hill -> 3. Enigma
         res = "".join([pares.get(c, c) for c in texto_limpio])
         res_hill = ""
         for i in range(0, len(res), 2):
@@ -47,7 +44,6 @@ def procesar_total(texto, modo, config):
             res_hill += MAPA_N_L[cif[0]] + MAPA_N_L[cif[1]]
         res = aplicar_enigma_completo(res_hill, config)
     else:
-        # Descifrado inverso
         res = aplicar_enigma_completo(texto_limpio, config)
         res_hill = ""
         for i in range(0, len(res), 2):
@@ -64,6 +60,7 @@ def procesar_total(texto, modo, config):
 st.set_page_config(page_title="Enigma de la Alianza", layout="wide")
 
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+if 'active_config' not in st.session_state: st.session_state.active_config = None
 
 if not st.session_state.logged_in:
     st.title("🔐 Inicio de sesión en la Enigma de la Alianza")
@@ -75,36 +72,38 @@ if not st.session_state.logged_in:
         else:
             st.error("Contraseña incorrecta")
 else:
-    st.title("🛡️ Sistema Cifrado Enigma de la Alianza (Con Ñ)")
+    st.title("🛡️ Sistema Cifrado Enigma de la Alianza")
     
+    # Sidebar: Configuración
     st.sidebar.header("⚙️ Configuración Máquina")
+    r1 = st.sidebar.selectbox("Rotor 1", ["I", "II", "III"])
+    r2 = st.sidebar.selectbox("Rotor 2", ["I", "II", "III"])
+    r3 = st.sidebar.selectbox("Rotor 3", ["I", "II", "III"])
     
-    st.sidebar.subheader("Rotores")
-    c1, c2, c3 = st.sidebar.columns(3)
-    config = {
-        'r1': c1.selectbox("R1", ["I", "II", "III"]),
-        'r2': c2.selectbox("R2", ["II", "I", "III"]),
-        'r3': c3.selectbox("R3", ["III", "II", "I"]),
-    }
+    p1 = st.sidebar.selectbox("Posición R1", list(ALFABETO))
+    p2 = st.sidebar.selectbox("Posición R2", list(ALFABETO))
+    p3 = st.sidebar.selectbox("Posición R3", list(ALFABETO))
     
-    st.sidebar.subheader("Posición Inicial")
-    p1, p2, p3 = st.sidebar.columns(3)
-    config['p1'] = p1.selectbox("P1", list(ALFABETO))
-    config['p2'] = p2.selectbox("P2", list(ALFABETO))
-    config['p3'] = p3.selectbox("P3", list(ALFABETO))
+    c1 = st.sidebar.selectbox("Clavija 1", list(ALFABETO))
+    c2 = st.sidebar.selectbox("Clavija 2", list(ALFABETO))
     
-    st.sidebar.subheader("Clavijero (Steckerbrett)")
-    col_c1, col_c2 = st.sidebar.columns(2)
-    config['c1'] = col_c1.selectbox("Clavija 1", list(ALFABETO))
-    config['c2'] = col_c2.selectbox("Clavija 2", list(ALFABETO))
-    
-    col_cif, col_des = st.columns(2)
-    with col_cif:
-        txt = st.text_input("Texto a cifrar:")
-        if st.button("Cifrar"): st.code(procesar_total(txt, "cifrar", config))
-    with col_des:
-        code = st.text_input("Texto a descifrar:")
-        if st.button("Descifrar"): st.code(procesar_total(code, "descifrar", config))
+    if st.sidebar.button("Confirmar Configuración"):
+        st.session_state.active_config = {'r1':r1, 'r2':r2, 'r3':r3, 'p1':p1, 'p2':p2, 'p3':p3, 'c1':c1, 'c2':c2}
+        st.sidebar.success("Configuración aplicada con éxito")
+
+    # Área principal
+    if st.session_state.active_config:
+        col_cif, col_des = st.columns(2)
+        with col_cif:
+            txt = st.text_input("Texto a cifrar:")
+            if st.button("Cifrar"): 
+                st.code(procesar_total(txt, "cifrar", st.session_state.active_config))
+        with col_des:
+            code = st.text_input("Texto a descifrar:")
+            if st.button("Descifrar"): 
+                st.code(procesar_total(code, "descifrar", st.session_state.active_config))
+    else:
+        st.warning("Por favor, confirma la configuración en el menú lateral para activar la máquina.")
     
     if st.sidebar.button("Cerrar Sesión"):
         st.session_state.logged_in = False
