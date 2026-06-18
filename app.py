@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 
 # --- CONFIGURACIÓN ---
-ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+ALFABETO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 MAPA_L_N = {l: i for i, l in enumerate(ALFABETO)}
 MAPA_N_L = {i: l for i, l in enumerate(ALFABETO)}
 MATRIZ_HILL = np.array([[3, 2], [1, 1]])
@@ -14,19 +14,16 @@ ROTORES = {
     "III": "BDFHJLCPRTXVZNYEIWGAKMUSQO"
 }
 
-# --- LÓGICA DE LA MÁQUINA ---
-def aplicar_enigma_completo(texto, config, modo="cifrar"):
-    # Configuración de rotores
+# --- LÓGICA DE CIFRADO ---
+def aplicar_enigma_completo(texto, config):
     rot_izq = ROTORES[config['r1']]
     rot_cen = ROTORES[config['r2']]
     rot_der = ROTORES[config['r3']]
-    pos = config['pos']
+    pos = [MAPA_L_N[config['p1']], MAPA_L_N[config['p2']], MAPA_L_N[config['p3']]]
     
     res = ""
     for i, char in enumerate(texto):
-        # Simulación de paso por 3 rotores
-        idx = (MAPA_L_N[char] + pos + i) % 26
-        # Pasada por los 3 (simplificado como permutación combinada)
+        idx = (MAPA_L_N[char] + pos[2] + i) % 26
         letra = rot_der[(MAPA_L_N[rot_cen[(MAPA_L_N[rot_izq[idx]] + i)%26]] + i)%26]
         res += letra
     return res
@@ -37,23 +34,21 @@ def procesar_total(texto, modo, config):
     
     if modo == "cifrar":
         if len(texto_limpio) % 2 != 0: texto_limpio += "X"
-        # 1. Clavijero
+        # 1. Clavijero -> 2. Hill -> 3. Enigma
         res = "".join([config['pares'].get(c, c) for c in texto_limpio])
-        # 2. Hill
         res_hill = ""
         for i in range(0, len(res), 2):
             vec = np.array([MAPA_L_N[res[i]], MAPA_L_N[res[i+1]]])
-            cif = np.dot(MATRIZ_HILL, vec) % 27
+            cif = np.dot(MATRIZ_HILL, vec) % 26
             res_hill += MAPA_N_L[cif[0]] + MAPA_N_L[cif[1]]
-        # 3. Enigma (3 rotores)
-        res = aplicar_enigma_completo(res_hill, config, "cifrar")
+        res = aplicar_enigma_completo(res_hill, config)
     else:
         # Descifrado inverso
-        res = aplicar_enigma_completo(texto_limpio, config, "descifrar")
+        res = aplicar_enigma_completo(texto_limpio, config)
         res_hill = ""
         for i in range(0, len(res), 2):
-            vec = np.array([MAPA_L_N[res[i]], MAPA_L_N[res[i+1]]]) # ¡Corregido el paréntesis aquí!
-            des = np.dot(MATRIZ_INVERSA, vec) % 27
+            vec = np.array([MAPA_L_N[res[i]], MAPA_L_N[res[i+1]]])
+            des = np.dot(MATRIZ_INVERSA, vec) % 26
             res_hill += MAPA_N_L[des[0]] + MAPA_N_L[des[1]]
         res = "".join([config['pares'].get(c, c) for c in res_hill]).replace("X", "")
         
@@ -62,24 +57,48 @@ def procesar_total(texto, modo, config):
     return "".join(res_lista)
 
 # --- INTERFAZ ---
-st.set_page_config(layout="wide")
-st.title("🛡️ Enigma Nazi-Hill Simulador")
+st.set_page_config(page_title="Enigma Nazi-Hill", layout="wide")
 
-# Sidebar: Configuración Enigma
-st.sidebar.header("⚙️ Configuración Máquina")
-c1, c2, c3 = st.sidebar.columns(3)
-config = {
-    'r1': c1.selectbox("R1", ["I", "II", "III"]),
-    'r2': c2.selectbox("R2", ["II", "I", "III"]),
-    'r3': c3.selectbox("R3", ["III", "II", "I"]),
-    'pos': st.sidebar.slider("Posición Inicial", 0, 25, 0),
-    'pares': {'A': 'Z', 'Z': 'A'} # Aquí puedes añadir más clavijas
-}
+if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 
-col1, col2 = st.columns(2)
-with col1:
-    txt = st.text_input("Cifrar:")
-    if st.button("Procesar Cifrado"): st.code(procesar_total(txt, "cifrar", config))
-with col2:
-    code = st.text_input("Descifrar:")
-    if st.button("Procesar Descifrado"): st.code(procesar_total(code, "descifrar", config))
+if not st.session_state.logged_in:
+    st.title("🔐 Acceso Restringido")
+    pwd = st.text_input("Contraseña:", type="password")
+    if st.button("Acceder"):
+        if pwd == "MAQUINA":
+            st.session_state.logged_in = True
+            st.rerun()
+        else:
+            st.error("Acceso denegado")
+else:
+    st.title("🛡️ Sistema Cifrado Enigma Dual Pro")
+    st.sidebar.header("⚙️ Configuración")
+    
+    # Rotores
+    c1, c2, c3 = st.sidebar.columns(3)
+    config = {
+        'r1': c1.selectbox("R1", ["I", "II", "III"]),
+        'r2': c2.selectbox("R2", ["II", "I", "III"]),
+        'r3': c3.selectbox("R3", ["III", "II", "I"]),
+        'pares': {'A': 'Z', 'Z': 'A'}
+    }
+    
+    # Letras iniciales
+    st.sidebar.subheader("Posición Inicial")
+    p1, p2, p3 = st.sidebar.columns(3)
+    config['p1'] = p1.selectbox("P1", list(ALFABETO))
+    config['p2'] = p2.selectbox("P2", list(ALFABETO))
+    config['p3'] = p3.selectbox("P3", list(ALFABETO))
+    
+    # Procesamiento
+    col1, col2 = st.columns(2)
+    with col1:
+        txt = st.text_input("Texto a cifrar:")
+        if st.button("Cifrar"): st.code(procesar_total(txt, "cifrar", config))
+    with col2:
+        code = st.text_input("Texto a descifrar:")
+        if st.button("Descifrar"): st.code(procesar_total(code, "descifrar", config))
+    
+    if st.sidebar.button("Cerrar Sesión"):
+        st.session_state.logged_in = False
+        st.rerun()
