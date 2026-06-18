@@ -1,33 +1,58 @@
 import streamlit as st
 import time
 
-# --- FUNCIONES DE CIFRADO ---
-def cifrar_mensaje(mensaje):
-    n = len(mensaje)
-    resultado = ""
-    for i, char in enumerate(mensaje, 1):
-        # Valor original (A=1, B=2...)
-        vi = ord(char.upper()) - 64 
-        # Fórmula: Ci = (Vi + 2*i + n + n) mod 27 
-        # (Usamos 2n porque sumamos n de la fórmula original + n del César)
-        ci = (vi + (2 * i) + (2 * n)) % 27
-        if ci == 0: ci = 27
-        resultado += chr(ci + 64)
-    return resultado
-
-# --- INTERFAZ Y LÓGICA DE ACCESO ---
+# --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Sistema de Cifrado")
-st.title("🔒 Sistema de Cifrado")
 
-# Lógica de estados... (mantén la lógica de intentos y bloqueo que te pasé antes)
+# --- ESTADOS ---
+if 'intentos' not in st.session_state: st.session_state.intentos = 0
+if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
+if 'tiempo_bloqueo' not in st.session_state: st.session_state.tiempo_bloqueo = 0
+if 'autenticado' not in st.session_state: st.session_state.autenticado = False
+if 'tiempo_agotado' not in st.session_state: st.session_state.tiempo_agotado = False
 
-if st.session_state.get('autenticado', False):
-    st.subheader("Herramienta de Cifrado")
-    mensaje_input = st.text_input("Mensaje a cifrar:")
+# --- LOGICA DE BLOQUEO ---
+if st.session_state.bloqueado:
+    tiempo_transcurrido = time.time() - st.session_state.tiempo_bloqueo
+    if tiempo_transcurrido < 60:
+        st.error(f"Lo sentimos, pero hemos visto que no eres apto para esta web. Por favor, espera a que el contador llegue a cero: {int(60 - tiempo_transcurrido)}s")
+        st.stop()
+    else:
+        st.session_state.bloqueado = False
+        st.session_state.tiempo_agotado = True
+        st.session_state.intentos = 0
+
+# --- INTERFAZ ---
+if not st.session_state.autenticado:
+    st.title("Inicio de sesión en el cifrado de aritmética modular")
     
-    if st.button("Ejecutar Cifrado"):
-        if mensaje_input:
-            cifrado = cifrar_mensaje(mensaje_input)
-            st.success(f"Resultado: {cifrado}")
+    if st.session_state.tiempo_agotado:
+        st.warning("Lo sentimos, aunque haya acabado el contador, no puede iniciar sesión.")
+    
+    password = st.text_input("Inicie sesión:", type="password")
+    
+    if st.button("Acceder"):
+        if password == "MAQUINA":
+            st.session_state.autenticado = True
+            st.rerun()
         else:
-            st.warning("Por favor, introduce un texto.")
+            st.session_state.intentos += 1
+            if st.session_state.intentos >= 3:
+                st.session_state.bloqueado = True
+                st.session_state.tiempo_bloqueo = time.time()
+            st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
+else:
+    # --- INTERFAZ DENTRO ---
+    st.title("Máquina del cifrado del cifrado aritmético modular")
+    
+    opcion = st.radio("Selecciona una opción:", ["Cifrar", "Descifrar"])
+    mensaje = st.text_input("Introduce tu mensaje:")
+    
+    if st.button("Ejecutar"):
+        resultado = "RESULTADO_CIFRADO" # Aquí iría tu lógica
+        st.text_area("Resultado:", value=resultado, help="Puedes copiar este texto")
+    
+    st.divider()
+    if st.button("Cerrar sesión"):
+        st.session_state.autenticado = False
+        st.rerun()
