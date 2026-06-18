@@ -60,4 +60,4 @@ else:
 
     if st.sidebar.button("Cerrar sesión"):
         st.session_state.logged_in = False
-        st.rerun()vvvvvvvvvv
+        st.rerun()
