@@ -1,65 +1,80 @@
 import streamlit as st
+import time
 
 # Configuración
 st.set_page_config(page_title="Sistema de Cifrado Pro", layout="wide")
 
+# Abecedario
 ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
 CONV = {letra: i + 1 for i, letra in enumerate(ALFABETO)}
 
-def validar_solo_letras(texto):
-    # Comprueba si el texto contiene números
-    if any(char.isdigit() for char in texto):
-        return False
-    return True
-
-def cifrar_frase(texto, clave):
+# --- LÓGICA DE CIFRADO ---
+def procesar_frase(texto, modo):
     palabras = texto.upper().split()
     resultados = []
     for palabra in palabras:
         n = len(palabra)
-        valor_alg = sum(CONV.get(palabra[i], 0) * clave[i % len(clave)] for i in range(n))
-        resultados.append(str(valor_alg + n))
+        # Usamos n como "clave" interna para evitar que el usuario deba ponerla
+        if modo == "cifrar":
+            val = sum(CONV.get(palabra[i], 0) * (i + 1) for i in range(n))
+            resultados.append(str(val + n))
+        else:
+            val_sin_cesar = int(palabra) - n
+            resultados.append(str(val_sin_cesar))
     return " ".join(resultados)
+
+# --- ESTADO DE SESIÓN ---
+if 'logueado' not in st.session_state: st.session_state.logueado = False
+if 'intentos' not in st.session_state: st.session_state.intentos = 0
+if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
 
 # --- INTERFAZ ---
 st.title("🔐 Sistema de Cifrado Pro")
 
-if 'logueado' not in st.session_state: st.session_state.logueado = False
+if st.session_state.bloqueado:
+    st.error("❌ Lo siento, hemos detectado que no eres un usuario apto para utilizar esta web.")
+    st.warning("Por favor, espera a que termine la cuenta regresiva antes de poder utilizar otra vez el inicio de sesión.")
+    # Temporizador trampa
+    placeholder = st.empty()
+    for i in range(10, 0, -1):
+        placeholder.metric("Tiempo restante:", f"{i} segundos")
+        time.sleep(1)
+    placeholder.write("Cuenta regresiva finalizada... pero el acceso sigue denegado por seguridad.")
+    st.stop()
 
 if not st.session_state.logueado:
-    if st.text_input("Contraseña:", type="password") == "MAQUINA":
-        st.session_state.logueado = True
-        st.rerun()
+    password = st.text_input("Introduce la contraseña:", type="password")
+    if st.button("Iniciar sesión"):
+        if password == "MAQUINA":
+            st.session_state.logueado = True
+            st.rerun()
+        else:
+            st.session_state.intentos += 1
+            if st.session_state.intentos >= 3:
+                st.session_state.bloqueado = True
+                st.rerun()
+            else:
+                st.error(f"Palabra incorrecta, por favor inténtelo de nuevo. (Intento {st.session_state.intentos}/3)")
 else:
     col1, col2 = st.columns(2)
-    
     with col1:
-        st.subheader("Cifrar")
+        st.subheader("Cifrar Mensaje")
         msg = st.text_input("Mensaje a cifrar:")
-        clave_input = st.text_input("Clave (ej: 3,2,1):")
-        
         if st.button("Cifrar"):
-            # Validación estricta
-            if not validar_solo_letras(msg):
+            if any(char.isdigit() for char in msg):
                 st.error("Lo siento, pero esta web no puede procesar números para los cálculos. Por favor, escríbelos manualmente a base de letras.")
             else:
-                try:
-                    clave = [int(x) for x in clave_input.split(",")]
-                    st.code(cifrar_frase(msg, clave))
-                except:
-                    st.error("Error en el formato de la clave.")
-
+                st.code(procesar_frase(msg, "cifrar"))
     with col2:
-        st.subheader("Descifrar")
+        st.subheader("Descifrar Mensaje")
         cif_input = st.text_input("Texto cifrado:")
         if st.button("Descifrar"):
-            # Validación estricta
-            if not validar_solo_letras(cif_input.replace(" ", "")):
-                st.info("Descifrando bloque...")
-                # Aquí iría tu lógica inversa
-            else:
+            if any(char.isalpha() for char in cif_input):
                 st.error("Lo siento, pero esta web no puede procesar letras para el descifrado. Por favor, introduce solo el código numérico.")
+            else:
+                st.code(procesar_frase(cif_input, "descifrar"))
 
     if st.button("Cerrar sesión"):
         st.session_state.logueado = False
+        st.session_state.intentos = 0
         st.rerun()
