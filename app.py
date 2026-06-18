@@ -1,29 +1,26 @@
 import streamlit as st
 
-# Diccionario de conversión
+# Alfabeto base
 alfabeto = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
 conv = {letra: i + 1 for i, letra in enumerate(alfabeto)}
 inv_conv = {i + 1: letra for i, letra in enumerate(alfabeto)}
 
-def aplicar_cesar(valor, n, modo="cifrar"):
-    if modo == "cifrar":
-        return valor + n
-    return valor - n
-
-def cifrar(mensaje, clave):
-    limpio = mensaje.upper().replace(" ", "")
+def procesar(texto, clave, modo):
+    # Ignoramos espacios para el cálculo
+    limpio = texto.upper().replace(" ", "")
     n = len(limpio)
     
-    # Álgebra: Suma de (valor_letra * coeficiente_clave)
-    # Ajustamos la clave a la longitud del mensaje
-    val_algebraico = sum(conv.get(limpio[i], 0) * clave[i % len(clave)] for i in range(n))
-    
-    # César dinámico
-    return aplicar_cesar(val_algebraico, n, "cifrar")
+    if modo == "cifrar":
+        # Álgebra + César
+        val = sum(conv.get(limpio[i], 0) * clave[i % len(clave)] for i in range(n))
+        return val + n
+    else:
+        # Revertir César - Álgebra (descifrado simple)
+        # Nota: Como es una suma, el descifrado exacto requiere tu clave de bloques
+        val_sin_cesar = int(texto) - n
+        return f"Procesado: {val_sin_cesar}"
 
-# --- INTERFAZ ---
-st.set_page_config(page_title="Cifrado Pro", layout="centered")
-st.title("🔐 Sistema de Cifrado Algebraico")
+st.title("🔐 Sistema de Cifrado")
 
 if 'logueado' not in st.session_state: st.session_state.logueado = False
 
@@ -37,19 +34,18 @@ else:
     
     with col1:
         st.subheader("Cifrar")
-        mensaje = st.text_input("Mensaje:")
-        clave_str = st.text_input("Clave (números separados por coma, ej: 3,2,1):")
+        msg = st.text_input("Mensaje a cifrar:")
+        clave_input = st.text_input("Clave (números ej: 3,2,1):")
         if st.button("Cifrar"):
-            try:
-                clave = [int(x) for x in clave_str.split(",")]
-                res = cifrar(mensaje, clave)
-                st.success(f"Cifrado: {res}")
-            except: st.error("Error en la clave.")
+            clave = [int(x) for x in clave_input.split(",")]
+            st.write("Resultado:", procesar(msg, clave, "cifrar"))
 
     with col2:
         st.subheader("Descifrar")
-        st.info("Nota: Este sistema es de 'sentido único' por la suma algebraica. "
-                "Para descifrar, el receptor debe conocer la clave secreta y la longitud.")
+        cif_input = st.text_input("Número cifrado:")
+        n_caracteres = st.number_input("Nº caracteres:", min_value=1)
+        if st.button("Descifrar"):
+            st.write("Resultado:", int(cif_input) - n_caracteres)
 
     if st.button("Cerrar sesión"):
         st.session_state.logueado = False
