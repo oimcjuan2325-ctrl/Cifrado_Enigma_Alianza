@@ -1,11 +1,10 @@
 import streamlit as st
 import numpy as np
 
-# --- CONFIGURACIÓN (ALFABETO DE 27) ---
+# --- CONFIGURACIÓN ---
 ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
 MAPA_L_N = {l: i for i, l in enumerate(ALFABETO)}
 MAPA_N_L = {i: l for i, l in enumerate(ALFABETO)}
-# Matriz de Hill 2x2
 MATRIZ_HILL = np.array([[3, 2], [1, 1]])
 MATRIZ_INVERSA = np.array([[1, 25], [26, 3]])
 
@@ -18,20 +17,26 @@ ROTORES = {
 # --- LÓGICA: GENERACIÓN DE ABECEDARIO ÚNICO ---
 def generar_abecedario_unico(config):
     """
-    Simula el paso de cada letra por la configuración de rotores y 
-    devuelve un diccionario que actúa como el abecedario de esa máquina.
+    Genera un abecedario único que combina:
+    1. El orden de los 3 rotores.
+    2. La posición inicial de cada rotor (P1, P2, P3).
     """
-    rot1, rot2, rot3 = ROTORES[config['r1']], ROTORES[config['r2']], ROTORES[config['r3']]
+    r1, r2, r3 = ROTORES[config['r1']], ROTORES[config['r2']], ROTORES[config['r3']]
     p1, p2, p3 = MAPA_L_N[config['p1']], MAPA_L_N[config['p2']], MAPA_L_N[config['p3']]
     
     mapeo = {}
     for char in ALFABETO:
-        # Trayectoria: Letra -> R3 -> R2 -> R1
-        i = MAPA_L_N[char]
-        # Aplicamos la posición de cada rotor como desfase
-        paso3 = rot3[(i + p3) % 27]
-        paso2 = rot2[(MAPA_L_N[paso3] + p2) % 27]
-        paso1 = rot1[(MAPA_L_N[paso2] + p1) % 27]
+        # Trayectoria: Entrada -> R3 (pos p3) -> R2 (pos p2) -> R1 (pos p1)
+        # Aplicamos el desplazamiento de cada rotor de forma independiente
+        idx = MAPA_L_N[char]
+        
+        # R3 (der)
+        paso3 = r3[(idx + p3) % 27]
+        # R2 (cen)
+        paso2 = r2[(MAPA_L_N[paso3] + p2) % 27]
+        # R1 (izq)
+        paso1 = r1[(MAPA_L_N[paso2] + p1) % 27]
+        
         mapeo[char] = paso1
     return mapeo
 
@@ -104,10 +109,10 @@ else:
         
         if st.button("Confirmar Configuración"):
             conf = {'r1':r1, 'r2':r2, 'r3':r3, 'p1':p1, 'p2':p2, 'p3':p3, 'clavijas':clavijas}
-            # AQUÍ OCURRE LA MAGIA: Cada combinación genera su mapa único
+            # Aquí generamos el abecedario fresco cada vez que pulsas el botón
             conf['abecedario'] = generar_abecedario_unico(conf)
             st.session_state.active_config = conf
-            st.success("Configuración aplicada: Abecedario de sustitución generado para esta combinación.")
+            st.success("Configuración aplicada: Abecedario único generado.")
 
     if 'active_config' in st.session_state and st.session_state.active_config:
         col_a, col_b = st.columns(2)
