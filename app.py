@@ -55,7 +55,7 @@ if not st.session_state.logged_in:
     st.title("🔐 Acceso a Enigma")
     pwd = st.text_input("Palabra clave:", type="password")
     if st.button("Iniciar sesión"):
-        if pwd == "máquina":
+        if pwd == "MAQUINA":
             st.session_state.logged_in = True
             st.rerun()
 else:
