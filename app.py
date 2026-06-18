@@ -1,32 +1,33 @@
 import streamlit as st
 
-# Alfabeto base
-alfabeto = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
-conv = {letra: i + 1 for i, letra in enumerate(alfabeto)}
-inv_conv = {i + 1: letra for i, letra in enumerate(alfabeto)}
+# Configuración
+st.set_page_config(page_title="Sistema de Cifrado Pro", layout="wide")
 
-def procesar(texto, clave, modo):
-    # Ignoramos espacios para el cálculo
-    limpio = texto.upper().replace(" ", "")
-    n = len(limpio)
-    
-    if modo == "cifrar":
-        # Álgebra + César
-        val = sum(conv.get(limpio[i], 0) * clave[i % len(clave)] for i in range(n))
-        return val + n
-    else:
-        # Revertir César - Álgebra (descifrado simple)
-        # Nota: Como es una suma, el descifrado exacto requiere tu clave de bloques
-        val_sin_cesar = int(texto) - n
-        return f"Procesado: {val_sin_cesar}"
+ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
+CONV = {letra: i + 1 for i, letra in enumerate(ALFABETO)}
 
-st.title("🔐 Sistema de Cifrado")
+def validar_solo_letras(texto):
+    # Comprueba si el texto contiene números
+    if any(char.isdigit() for char in texto):
+        return False
+    return True
+
+def cifrar_frase(texto, clave):
+    palabras = texto.upper().split()
+    resultados = []
+    for palabra in palabras:
+        n = len(palabra)
+        valor_alg = sum(CONV.get(palabra[i], 0) * clave[i % len(clave)] for i in range(n))
+        resultados.append(str(valor_alg + n))
+    return " ".join(resultados)
+
+# --- INTERFAZ ---
+st.title("🔐 Sistema de Cifrado Pro")
 
 if 'logueado' not in st.session_state: st.session_state.logueado = False
 
 if not st.session_state.logueado:
-    password = st.text_input("Contraseña:", type="password")
-    if password == "MAQUINA":
+    if st.text_input("Contraseña:", type="password") == "MAQUINA":
         st.session_state.logueado = True
         st.rerun()
 else:
@@ -35,17 +36,29 @@ else:
     with col1:
         st.subheader("Cifrar")
         msg = st.text_input("Mensaje a cifrar:")
-        clave_input = st.text_input("Clave (números ej: 3,2,1):")
+        clave_input = st.text_input("Clave (ej: 3,2,1):")
+        
         if st.button("Cifrar"):
-            clave = [int(x) for x in clave_input.split(",")]
-            st.write("Resultado:", procesar(msg, clave, "cifrar"))
+            # Validación estricta
+            if not validar_solo_letras(msg):
+                st.error("Lo siento, pero esta web no puede procesar números para los cálculos. Por favor, escríbelos manualmente a base de letras.")
+            else:
+                try:
+                    clave = [int(x) for x in clave_input.split(",")]
+                    st.code(cifrar_frase(msg, clave))
+                except:
+                    st.error("Error en el formato de la clave.")
 
     with col2:
         st.subheader("Descifrar")
-        cif_input = st.text_input("Número cifrado:")
-        n_caracteres = st.number_input("Nº caracteres:", min_value=1)
+        cif_input = st.text_input("Texto cifrado:")
         if st.button("Descifrar"):
-            st.write("Resultado:", int(cif_input) - n_caracteres)
+            # Validación estricta
+            if not validar_solo_letras(cif_input.replace(" ", "")):
+                st.info("Descifrando bloque...")
+                # Aquí iría tu lógica inversa
+            else:
+                st.error("Lo siento, pero esta web no puede procesar letras para el descifrado. Por favor, introduce solo el código numérico.")
 
     if st.button("Cerrar sesión"):
         st.session_state.logueado = False
