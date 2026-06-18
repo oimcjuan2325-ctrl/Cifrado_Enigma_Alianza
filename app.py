@@ -14,7 +14,7 @@ ROTORES = {
     "III": "BDFHJLCPRTXVZNYEIWGAKMUSQOÑ"
 }
 
-# --- LÓGICA DE CIFRADO ---
+# --- LÓGICA ---
 def aplicar_enigma_completo(texto, config):
     rot_izq = ROTORES[config['r1']]
     rot_cen = ROTORES[config['r2']]
@@ -31,8 +31,12 @@ def aplicar_enigma_completo(texto, config):
 def procesar_total(texto, modo, config):
     espacios = [i for i, char in enumerate(texto) if char == " "]
     texto_limpio = "".join([c for c in texto.upper() if c in ALFABETO])
-    
-    pares = {config['c1']: config['c2'], config['c2']: config['c1']}
+    # Clavijero: Convertir string de clavijas en diccionario (ej: "AZ,BK")
+    pares = {}
+    if config['clavijas']:
+        for par in config['clavijas'].upper().split(','):
+            if len(par) == 2:
+                pares[par[0]] = par[1]; pares[par[1]] = par[0]
     
     if modo == "cifrar":
         if len(texto_limpio) % 2 != 0: texto_limpio += "X"
@@ -74,37 +78,35 @@ if not st.session_state.logged_in:
 else:
     st.title("🛡️ Sistema Cifrado Enigma de la Alianza")
     
-    # Sidebar: Configuración
-    st.sidebar.header("⚙️ Configuración Máquina")
-    r1 = st.sidebar.selectbox("Rotor 1", ["I", "II", "III"])
-    r2 = st.sidebar.selectbox("Rotor 2", ["I", "II", "III"])
-    r3 = st.sidebar.selectbox("Rotor 3", ["I", "II", "III"])
-    
-    p1 = st.sidebar.selectbox("Posición R1", list(ALFABETO))
-    p2 = st.sidebar.selectbox("Posición R2", list(ALFABETO))
-    p3 = st.sidebar.selectbox("Posición R3", list(ALFABETO))
-    
-    c1 = st.sidebar.selectbox("Clavija 1", list(ALFABETO))
-    c2 = st.sidebar.selectbox("Clavija 2", list(ALFABETO))
-    
-    if st.sidebar.button("Confirmar Configuración"):
-        st.session_state.active_config = {'r1':r1, 'r2':r2, 'r3':r3, 'p1':p1, 'p2':p2, 'p3':p3, 'c1':c1, 'c2':c2}
-        st.sidebar.success("Configuración aplicada con éxito")
+    with st.expander("⚙️ Configuración de la Máquina", expanded=True):
+        st.subheader("Rotores")
+        c1, c2, c3 = st.columns(3)
+        r1 = c1.selectbox("Rotor 1", ["I", "II", "III"])
+        r2 = c2.selectbox("Rotor 2", ["I", "II", "III"])
+        r3 = c3.selectbox("Rotor 3", ["I", "II", "III"])
+        
+        st.subheader("Posición Inicial")
+        p1, p2, p3 = st.columns(3)
+        pos1 = p1.selectbox("Posición R1", list(ALFABETO))
+        pos2 = p2.selectbox("Posición R2", list(ALFABETO))
+        pos3 = p3.selectbox("Posición R3", list(ALFABETO))
+        
+        st.subheader("Clavijas (Ej: AZ,BK)")
+        clavijas = st.text_input("Escribe las parejas de clavijas:")
+        
+        if st.button("Confirmar Configuración"):
+            st.session_state.active_config = {'r1':r1, 'r2':r2, 'r3':r3, 'p1':pos1, 'p2':pos2, 'p3':pos3, 'clavijas':clavijas}
+            st.success("Configuración aplicada")
 
-    # Área principal
     if st.session_state.active_config:
-        col_cif, col_des = st.columns(2)
-        with col_cif:
+        col_a, col_b = st.columns(2)
+        with col_a:
             txt = st.text_input("Texto a cifrar:")
-            if st.button("Cifrar"): 
-                st.code(procesar_total(txt, "cifrar", st.session_state.active_config))
-        with col_des:
+            if st.button("Cifrar"): st.code(procesar_total(txt, "cifrar", st.session_state.active_config))
+        with col_b:
             code = st.text_input("Texto a descifrar:")
-            if st.button("Descifrar"): 
-                st.code(procesar_total(code, "descifrar", st.session_state.active_config))
-    else:
-        st.warning("Por favor, confirma la configuración en el menú lateral para activar la máquina.")
+            if st.button("Descifrar"): st.code(procesar_total(code, "descifrar", st.session_state.active_config))
     
-    if st.sidebar.button("Cerrar Sesión"):
+    if st.button("Cerrar Sesión"):
         st.session_state.logged_in = False
         st.rerun()
