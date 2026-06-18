@@ -1,8 +1,28 @@
 import streamlit as st
 import time
+import numpy as np
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Sistema de Cifrado")
+
+# --- FUNCIONES DE CIFRADO/DESCIFRADO ---
+def cifrar(mensaje):
+    n = len(mensaje)
+    # Convertimos a valores (A=1, B=2...) y aplicamos fórmula con NumPy
+    vals = np.array([ord(c.upper()) - 64 for c in mensaje])
+    i = np.arange(1, n + 1)
+    res = (vals + (2 * i) + (2 * n)) % 27
+    res[res == 0] = 27 # Ajuste para que Z=27
+    return "".join([chr(v + 64) for v in res])
+
+def descifrar(mensaje):
+    n = len(mensaje)
+    # Proceso inverso: restamos lo que antes sumamos
+    vals = np.array([ord(c.upper()) - 64 for c in mensaje])
+    i = np.arange(1, n + 1)
+    res = (vals - (2 * i) - (2 * n)) % 27
+    res[res <= 0] += 27 # Ajuste para volver al rango positivo
+    return "".join([chr(v + 64) for v in res])
 
 # --- ESTADOS ---
 if 'intentos' not in st.session_state: st.session_state.intentos = 0
@@ -25,12 +45,9 @@ if st.session_state.bloqueado:
 # --- INTERFAZ ---
 if not st.session_state.autenticado:
     st.title("Inicio de sesión en el cifrado de aritmética modular")
-    
     if st.session_state.tiempo_agotado:
         st.warning("Lo sentimos, aunque haya acabado el contador, no puede iniciar sesión.")
-    
     password = st.text_input("Inicie sesión:", type="password")
-    
     if st.button("Acceder"):
         if password == "MAQUINA":
             st.session_state.autenticado = True
@@ -42,15 +59,15 @@ if not st.session_state.autenticado:
                 st.session_state.tiempo_bloqueo = time.time()
             st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
 else:
-    # --- INTERFAZ DENTRO ---
     st.title("Máquina del cifrado del cifrado aritmético modular")
-    
     opcion = st.radio("Selecciona una opción:", ["Cifrar", "Descifrar"])
     mensaje = st.text_input("Introduce tu mensaje:")
-    
     if st.button("Ejecutar"):
-        resultado = "RESULTADO_CIFRADO" # Aquí iría tu lógica
-        st.text_area("Resultado:", value=resultado, help="Puedes copiar este texto")
+        if opcion == "Cifrar":
+            res = cifrar(mensaje)
+        else:
+            res = descifrar(mensaje)
+        st.text_area("Resultado:", value=res, help="Puedes copiar este texto")
     
     st.divider()
     if st.button("Cerrar sesión"):
