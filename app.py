@@ -50,7 +50,7 @@ def procesar_total(texto, modo, config):
         res = aplicar_rotor_enigma(texto_limpio, rotor, pos, "descifrar")
         res_hill = ""
         for i in range(0, len(res), 2):
-            vec = np.array([MAPA_L_N[res[i]], MAPA_L_N[res[i+1]]
+            vec = np.array(MAPA_L_N[res[i]], MAPA_L_N[res[i+1]]
             des = np.dot(MATRIZ_INVERSA, vec) % 27
             res_hill += MAPA_N_L[des[0]] + MAPA_N_L[des[1]]
         res = "".join([pares.get(c, c) for c in res_hill]).replace("X", "")
