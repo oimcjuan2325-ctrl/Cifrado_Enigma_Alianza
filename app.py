@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Sistema de Cifrado", layout="wide")
 
 # Abecedario definido como constante
@@ -9,53 +9,42 @@ ALFABETO = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ"
 CONV = {letra: i + 1 for i, letra in enumerate(ALFABETO)}
 INV_CONV = {i + 1: letra for i, letra in enumerate(ALFABETO)}
 
-# --- LÓGICA CORE (ROBUSTA) ---
+# --- LÓGICA CORE ---
 def transformar(texto, modo):
     """
-    Transforma el texto usando la lógica de desplazamiento variable:
-    (Valor + Posición + Longitud) % 27
+    Aplica la fórmula: (Valor + Posición + Longitud) % 27
     """
     texto = texto.upper().replace(" ", "")
-    if not texto:
-        return ""
-    
+    if not texto: return ""
     resultado = []
     n = len(texto)
-    
-    try:
-        for i, char in enumerate(texto):
-            if char not in CONV:
-                continue # Ignora caracteres fuera del abecedario definido
+    for i, char in enumerate(texto):
+        if char not in CONV: continue
+        valor_letra = CONV[char]
+        
+        if modo == "cifrar":
+            nuevo_val = (valor_letra + (i + 1) + n) % 27
+        else:
+            nuevo_val = (valor_letra - (i + 1) - n) % 27
             
-            valor_letra = CONV[char]
-            
-            if modo == "cifrar":
-                nuevo_val = (valor_letra + (i + 1) + n) % 27
-            else:
-                nuevo_val = (valor_letra - (i + 1) - n) % 27
-            
-            # Ajuste de módulo para asegurar rango 1-27
-            idx = nuevo_val if nuevo_val != 0 else 27
-            resultado.append(INV_CONV[idx])
-            
-        return "".join(resultado)
-    except Exception as e:
-        return f"Error en procesamiento: {e}"
+        idx = nuevo_val if nuevo_val != 0 else 27
+        resultado.append(INV_CONV[idx])
+    return "".join(resultado)
 
-# --- GESTIÓN DE SESIÓN ---
+# --- GESTIÓN DE ESTADO ---
 if 'logueado' not in st.session_state: st.session_state.logueado = False
 if 'intentos' not in st.session_state: st.session_state.intentos = 0
 if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
 
-# --- INTERFAZ DE USUARIO ---
+# --- INTERFAZ ---
 st.title("🔐 Sistema de Cifrado")
 
-# Bloqueo de seguridad
+# Bloqueo por seguridad
 if st.session_state.bloqueado:
-    st.error("⚠️ Acceso restringido por motivos de seguridad.")
+    st.error("⚠️ Acceso denegado por seguridad.")
     placeholder = st.empty()
     for i in range(60, 0, -1):
-        placeholder.metric("Tiempo de espera para reintento:", f"{i} segundos")
+        placeholder.metric("Tiempo de espera:", f"{i} seg")
         time.sleep(1)
     st.session_state.bloqueado = False
     st.session_state.intentos = 0
@@ -63,7 +52,7 @@ if st.session_state.bloqueado:
 
 # Login
 if not st.session_state.logueado:
-    password = st.text_input("Introduce la contraseña de acceso:", type="password")
+    password = st.text_input("Introduce la contraseña:", type="password")
     if st.button("Acceder"):
         if password == "MAQUINA":
             st.session_state.logueado = True
@@ -75,20 +64,22 @@ if not st.session_state.logueado:
                 st.rerun()
             st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
 else:
-    # Área de trabajo
+    # Interfaz principal
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("Cifrar")
-        msg = st.text_input("Mensaje a cifrar:", key="cifrar_input")
+        msg = st.text_input("Mensaje a cifrar:", key="c1")
         if st.button("Ejecutar Cifrado"):
-            st.success(f"Resultado: {transformar(msg, 'cifrar')}")
+            res = transformar(msg, 'cifrar')
+            st.code(res) # Permite copiar fácilmente
             
     with col2:
         st.subheader("Descifrar")
-        cif = st.text_input("Mensaje cifrado:", key="descifrar_input")
-        if st.button("Ejecutar Descifrado"):
-            st.success(f"Resultado: {transformar(cif, 'descifrar')}")
+        cif = st.text_input("Mensaje cifrado:", key="c2")
+        if st.button("Ejecutar Descifrar"):
+            res = transformar(cif, 'descifrar')
+            st.code(res)
     
     st.divider()
     if st.button("Cerrar sesión"):
