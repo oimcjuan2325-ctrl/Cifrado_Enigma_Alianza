@@ -1,11 +1,13 @@
 import streamlit as st
 import time
+import numpy as np
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Cifrado Algebraico Modular", page_icon="🔒")
 
 # --- MOTOR DE CIFRADO ---
 def procesar_algebraico(mensaje, modo='cifrar'):
+    # Mapeo de valores
     mapa = {
         'A':1, 'B':2, 'C':3, 'D':4, 'E':5, 'F':6, 'G':7, 'H':8, 'I':9,
         'J':10, 'K':11, 'L':12, 'M':13, 'N':14, 'Ñ':15, 'O':16, 'P':17,
@@ -14,7 +16,9 @@ def procesar_algebraico(mensaje, modo='cifrar'):
     }
     mapa_inverso = {v: k for k, v in mapa.items()}
     
-    n = len(mensaje.replace(" ", ""))
+    # Limpieza y preparación
+    mensaje_limpio = mensaje.replace(" ", "")
+    n = len(mensaje_limpio)
     resultado = []
     
     for idx, char in enumerate(mensaje.upper()):
@@ -25,14 +29,22 @@ def procesar_algebraico(mensaje, modo='cifrar'):
         vi = mapa.get(char, 0)
         if vi == 0: continue
             
+        # Usamos NumPy para los cálculos vectorizados según la fórmula:
+        # Cifrado: (Vi + 2*i + n) mod 27
+        # Descifrado: (Vi - 2*i - n) mod 27
         i = idx + 1
+        val_i = np.array([i])
+        val_vi = np.array([vi])
+        val_n = np.array([n])
+        
         if modo == 'cifrar':
-            ci = (vi + (2 * i) + n) % 27
+            ci = (val_vi + (2 * val_i) + val_n) % 27
         else:
-            ci = (vi - (2 * i) - n) % 27
+            ci = (val_vi - (2 * val_i) - val_n) % 27
             
-        if ci <= 0: ci += 27
-        resultado.append(mapa_inverso.get(ci, '?'))
+        res_final = ci[0]
+        if res_final <= 0: res_final += 27
+        resultado.append(mapa_inverso.get(res_final, '?'))
         
     return "".join(resultado)
 
@@ -43,15 +55,18 @@ if 'tiempo_bloqueo' not in st.session_state: st.session_state.tiempo_bloqueo = 0
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'tiempo_agotado' not in st.session_state: st.session_state.tiempo_agotado = False
 
-# --- LÓGICA DE BLOQUEO ---
+# --- LÓGICA DE BLOQUEO CON CONTADOR ---
 if st.session_state.bloqueado:
     tiempo_transcurrido = time.time() - st.session_state.tiempo_bloqueo
-    if tiempo_transcurrido < 60:
-        st.error(f"Lo sentimos, pero hemos visto que no eres apto para esta web. Por favor, espera que el contador llegue a cero: {int(60 - tiempo_transcurrido)}s")
-        st.stop()
+    restante = 60 - int(tiempo_transcurrido)
+    if restante > 0:
+        st.error(f"Lo sentimos, pero hemos visto que no eres apto para esta web. Por favor, espera a que el contador llegue a cero: {restante}s")
+        time.sleep(1)
+        st.rerun()
     else:
         st.session_state.bloqueado = False
         st.session_state.tiempo_agotado = True
+        st.rerun()
 
 # --- INTERFAZ ---
 if not st.session_state.autenticado:
@@ -77,7 +92,6 @@ else:
     
     if st.button("Ejecutar"):
         res = procesar_algebraico(msg, 'cifrar' if op == "Cifrar" else 'descifrar')
-        # st.text_area incluye automáticamente el botón de copiar
         st.text_area("Resultado:", value=res, help="Copia este mensaje")
         
     st.divider()
