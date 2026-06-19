@@ -1,5 +1,4 @@
 import streamlit as st
-import time
 import numpy as np
 
 # --- CONFIGURACIÓN ---
@@ -7,7 +6,6 @@ st.set_page_config(page_title="Cifrado Algebraico Modular", page_icon="🔒")
 
 # --- MOTOR DE CIFRADO ---
 def procesar_algebraico(mensaje, modo='cifrar'):
-    # Mapeo de valores
     mapa = {
         'A':1, 'B':2, 'C':3, 'D':4, 'E':5, 'F':6, 'G':7, 'H':8, 'I':9,
         'J':10, 'K':11, 'L':12, 'M':13, 'N':14, 'Ñ':15, 'O':16, 'P':17,
@@ -16,7 +14,6 @@ def procesar_algebraico(mensaje, modo='cifrar'):
     }
     mapa_inverso = {v: k for k, v in mapa.items()}
     
-    # Limpieza y preparación
     mensaje_limpio = mensaje.replace(" ", "")
     n = len(mensaje_limpio)
     resultado = []
@@ -29,10 +26,8 @@ def procesar_algebraico(mensaje, modo='cifrar'):
         vi = mapa.get(char, 0)
         if vi == 0: continue
             
-        # Usamos NumPy para los cálculos vectorizados según la fórmula:
-        # Cifrado: (Vi + 2*i + n) mod 27
-        # Descifrado: (Vi - 2*i - n) mod 27
         i = idx + 1
+        # Cálculos vectorizados con NumPy
         val_i = np.array([i])
         val_vi = np.array([vi])
         val_n = np.array([n])
@@ -51,40 +46,25 @@ def procesar_algebraico(mensaje, modo='cifrar'):
 # --- ESTADOS ---
 if 'intentos' not in st.session_state: st.session_state.intentos = 0
 if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
-if 'tiempo_bloqueo' not in st.session_state: st.session_state.tiempo_bloqueo = 0
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
-if 'tiempo_agotado' not in st.session_state: st.session_state.tiempo_agotado = False
-
-# --- LÓGICA DE BLOQUEO CON CONTADOR ---
-if st.session_state.bloqueado:
-    tiempo_transcurrido = time.time() - st.session_state.tiempo_bloqueo
-    restante = 60 - int(tiempo_transcurrido)
-    if restante > 0:
-        st.error(f"Lo sentimos, pero hemos visto que no eres apto para esta web. Por favor, espera a que el contador llegue a cero: {restante}s")
-        time.sleep(1)
-        st.rerun()
-    else:
-        st.session_state.bloqueado = False
-        st.session_state.tiempo_agotado = True
-        st.rerun()
 
 # --- INTERFAZ ---
 if not st.session_state.autenticado:
     st.title("Inicio de sesión en el cifrado de aritmética modular")
-    if st.session_state.tiempo_agotado:
-        st.warning("Lo sentimos, aunque haya acabado el contador, no puede iniciar sesión.")
     
-    password = st.text_input("Inicie sesión:", type="password")
-    if st.button("Acceder"):
-        if password == "MAQUINA":
-            st.session_state.autenticado = True
-            st.rerun()
-        else:
-            st.session_state.intentos += 1
-            if st.session_state.intentos >= 3:
-                st.session_state.bloqueado = True
-                st.session_state.tiempo_bloqueo = time.time()
-            st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
+    if st.session_state.bloqueado:
+        st.error("Lo sentimos, pero no tiene acceso a esta web.")
+    else:
+        password = st.text_input("Inicie sesión:", type="password")
+        if st.button("Acceder"):
+            if password == "MAQUINA":
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.session_state.intentos += 1
+                if st.session_state.intentos >= 3:
+                    st.session_state.bloqueado = True
+                st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
 else:
     st.title("Máquina del Cifrado Algebraico Modular")
     op = st.radio("Selecciona una opción:", ["Cifrar", "Descifrar"])
