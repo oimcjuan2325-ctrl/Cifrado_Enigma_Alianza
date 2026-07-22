@@ -1,9 +1,10 @@
 import streamlit as st
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Cifrado Trigonométrico 2D", page_icon="🔒")
+st.set_page_config(page_title="Cifrado Trigonométrico 2D", page_icon="🔒", layout="wide")
 
 # --- MOTOR DE CIFRADO Y DESCIFRADO TRIGONOMÉTRICO ---
 MAPA = {
@@ -16,7 +17,6 @@ MAPA_INVERSO = {v: k for k, v in MAPA.items()}
 
 def calcular_desplazador(x, vi, operacion):
     """Calcula el desplazamiento trigonométrico según la función asignada"""
-    # Convertimos la coordenada en un ángulo en radianes (ajustado para evitar asíntotas en tan)
     angulo = ((x * 15 + vi * 5) % 80 + 5) * (np.pi / 180)
     
     if operacion == 'SEN':
@@ -26,7 +26,6 @@ def calcular_desplazador(x, vi, operacion):
     else:  # TAN
         val = np.tan(angulo)
         
-    # Escalamos el valor flotante a un desplazamiento entero seguro
     desplazamiento = int(np.round(val * 10))
     if desplazamiento == 0:
         desplazamiento = 1
@@ -38,7 +37,6 @@ def obtener_operacion(idx_letra):
     return operaciones[idx_letra % 3]
 
 def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
-    """Procesa el mensaje y devuelve los datos detallados de cada paso"""
     pasos = []
     resultado = []
     idx_letra = 0
@@ -81,6 +79,34 @@ def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
         
     return "".join(resultado), pasos
 
+def generar_grafico_plano(x, y_orig, y_dest, char_orig, char_dest, op_nombre):
+    """Genera una imagen del plano cartesiano 2D con Matplotlib"""
+    fig, ax = plt.subplots(figsize=(5, 4))
+    
+    # Ejes cartesianos
+    ax.axhline(0, color='gray', linewidth=1)
+    ax.axvline(0, color='gray', linewidth=1)
+    ax.grid(True, linestyle='--', alpha=0.5)
+    
+    # Puntos en el plano
+    ax.scatter([x], [y_orig], color='blue', s=100, label=f"Original '{char_orig}' ({x}, {y_orig})")
+    ax.scatter([x], [y_dest], color='red', s=100, label=f"Transformado '{char_dest}' ({x}, {y_dest})")
+    
+    # Flecha de transformación
+    ax.annotate('', xy=(x, y_dest), xytext=(x, y_orig),
+                arrowprops=dict(facecolor='green', edgecolor='green', arrowstyle='->', lw=2))
+    
+    # Formato
+    ax.set_xlim(0, max(10, x + 2))
+    ax.set_ylim(0, 30)
+    ax.set_xlabel("Posición en palabra (X)")
+    ax.set_ylabel("Valor alfabético (Y)")
+    ax.set_title(f"Plano Cartesiano — Función: {op_nombre}")
+    ax.legend(loc="upper left")
+    
+    plt.tight_layout()
+    return fig
+
 # --- ESTADOS ---
 if 'intentos' not in st.session_state: st.session_state.intentos = 0
 if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
@@ -105,47 +131,70 @@ if not st.session_state.autenticado:
                 st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
 else:
     st.title("Máquina del Cifrado Trigonométrico 2D")
-    op = st.radio("Selecciona una opción:", ["Cifrar", "Descifrar"])
-    msg = st.text_input("Introduce tu mensaje:")
     
-    col_velocidad, col_vacio = st.columns([1, 2])
-    with col_velocidad:
-        velocidad = st.slider("Velocidad de simulación (seg/paso):", 0.2, 2.0, 0.6)
+    # Distribución en dos columnas
+    col_izquierda, col_derecha = st.columns([1, 1], gap="large")
     
-    if st.button("Ejecutar"):
+    with col_izquierda:
+        st.subheader("⚙️ Controles")
+        op = st.radio("Selecciona una opción:", ["Cifrar", "Descifrar"])
+        msg = st.text_input("Introduce tu mensaje:")
+        btn_ejecutar = st.button("Ejecutar")
+
+    with col_derecha:
+        st.subheader("🎬 Simulación visual del proceso")
+        pantalla_simulacion = st.empty()
+        pantalla_simulacion.info("Introduce un mensaje y pulsa 'Ejecutar' para ver el gráfico y los cálculos paso a paso.")
+
+    # Ejecución de la animación
+    if btn_ejecutar:
         if not msg.strip():
             st.warning("Por favor, introduce un texto válido.")
         else:
             modo = 'cifrar' if op == "Cifrar" else 'descifrar'
             res_final, pasos = procesar_trigonometrico_paso_a_paso(msg, modo)
             
-            st.subheader("🎬 Simulación visual del proceso")
+            # Cálculo para que la animación dure aproximadamente 15 segundos en total
+            num_pasos = len(pasos)
+            tiempo_espera = 15.0 / num_pasos if num_pasos > 0 else 2.0
+            tiempo_espera = max(1.5, tiempo_espera) # Al menos 1.5s por paso
             
-            # Contenedores para actualizar la animación en vivo
-            pantalla_paso = st.empty()
-            progreso_bar = st.progress(0)
+            progreso_bar = col_derecha.progress(0)
             
-            # Reproducción animada de los cálculos
             for i, paso in enumerate(pasos):
-                progreso_bar.progress((i + 1) / len(pasos))
+                progreso_bar.progress((i + 1) / num_pasos)
                 
-                with pantalla_paso.container():
-                    st.markdown(f"### Paso {i+1} de {len(pasos)} — Letra: **'{paso['original']}'**")
+                # Generamos el gráfico cartesiano en directo
+                fig = generar_grafico_plano(
+                    x=paso['posicion'],
+                    y_orig=paso['valor_original'],
+                    y_dest=paso['resultado_num'],
+                    char_orig=paso['original'],
+                    char_dest=paso['resultado_char'],
+                    op_nombre=paso['operacion']
+                )
+                
+                with pantalla_simulacion.container():
+                    st.markdown(f"#### Paso {i+1} de {num_pasos} — Letra: **'{paso['original']}'**")
                     
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Punto en plano (X, Y)", f"({paso['posicion']}, {paso['valor_original']})")
-                    c2.metric("Función asignada", f"{paso['operacion']}({paso['angulo_deg']:.1f}°)")
-                    c3.metric("Desplazamiento", f"{'+' if modo == 'cifrar' else '-'}{paso['desplazamiento']}")
+                    # Mostrar gráfico del plano cartesiano
+                    st.pyplot(fig)
+                    plt.close(fig)
                     
+                    st.write(f"**Función:** `{paso['operacion']}` | **Ángulo:** `{paso['angulo_deg']:.1f}°` | **Desplazamiento:** `{'+' if modo == 'cifrar' else '-'}{paso['desplazamiento']}`")
                     st.latex(
-                        rf"\text{{Coordenada final}} = ({paso['valor_original']} {'+' if modo == 'cifrar' else '-'} \text{{{paso['operacion']}}}(\theta)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
+                        rf"({paso['valor_original']} {'+' if modo == 'cifrar' else '-'} \text{{{paso['operacion']}}}(\theta)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
                     )
                 
-                time.sleep(velocidad)
+                time.sleep(tiempo_espera)
                 
-            st.success("¡Proceso completado exitosamente!")
-            st.text_area("Resultado final:", value=res_final, help="Copia este mensaje")
-        
+            col_derecha.success("¡Proceso completado!")
+            
+            # Resultado final abajo
+            st.divider()
+            st.subheader("📌 Resultado Final")
+            st.text_area("Mensaje obtenido:", value=res_final, help="Copia este mensaje")
+
     st.divider()
     if st.button("Cerrar sesión"):
         st.session_state.autenticado = False
