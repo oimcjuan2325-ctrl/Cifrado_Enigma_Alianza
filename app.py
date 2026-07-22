@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import time
-import matplotlib.pyplot as plt
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Cifrado Trigonométrico 2D", page_icon="🔒", layout="wide")
@@ -16,9 +16,7 @@ MAPA = {
 MAPA_INVERSO = {v: k for k, v in MAPA.items()}
 
 def calcular_desplazador(x, vi, operacion):
-    """Calcula el desplazamiento trigonométrico según la función asignada"""
     angulo = ((x * 15 + vi * 5) % 80 + 5) * (np.pi / 180)
-    
     if operacion == 'SEN':
         val = np.sin(angulo)
     elif operacion == 'COS':
@@ -32,7 +30,6 @@ def calcular_desplazador(x, vi, operacion):
     return desplazamiento, angulo
 
 def obtener_operacion(idx_letra):
-    """Ciclo rotatorio: 1ª letra -> SEN, 2ª -> COS, 3ª -> TAN"""
     operaciones = ['SEN', 'COS', 'TAN']
     return operaciones[idx_letra % 3]
 
@@ -79,34 +76,6 @@ def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
         
     return "".join(resultado), pasos
 
-def generar_grafico_plano(x, y_orig, y_dest, char_orig, char_dest, op_nombre):
-    """Genera una imagen del plano cartesiano 2D con Matplotlib"""
-    fig, ax = plt.subplots(figsize=(5, 4))
-    
-    # Ejes cartesianos
-    ax.axhline(0, color='gray', linewidth=1)
-    ax.axvline(0, color='gray', linewidth=1)
-    ax.grid(True, linestyle='--', alpha=0.5)
-    
-    # Puntos en el plano
-    ax.scatter([x], [y_orig], color='blue', s=100, label=f"Original '{char_orig}' ({x}, {y_orig})")
-    ax.scatter([x], [y_dest], color='red', s=100, label=f"Transformado '{char_dest}' ({x}, {y_dest})")
-    
-    # Flecha de transformación
-    ax.annotate('', xy=(x, y_dest), xytext=(x, y_orig),
-                arrowprops=dict(facecolor='green', edgecolor='green', arrowstyle='->', lw=2))
-    
-    # Formato
-    ax.set_xlim(0, max(10, x + 2))
-    ax.set_ylim(0, 30)
-    ax.set_xlabel("Posición en palabra (X)")
-    ax.set_ylabel("Valor alfabético (Y)")
-    ax.set_title(f"Plano Cartesiano — Función: {op_nombre}")
-    ax.legend(loc="upper left")
-    
-    plt.tight_layout()
-    return fig
-
 # --- ESTADOS ---
 if 'intentos' not in st.session_state: st.session_state.intentos = 0
 if 'bloqueado' not in st.session_state: st.session_state.bloqueado = False
@@ -132,7 +101,6 @@ if not st.session_state.autenticado:
 else:
     st.title("Máquina del Cifrado Trigonométrico 2D")
     
-    # Distribución en dos columnas
     col_izquierda, col_derecha = st.columns([1, 1], gap="large")
     
     with col_izquierda:
@@ -144,9 +112,8 @@ else:
     with col_derecha:
         st.subheader("🎬 Simulación visual del proceso")
         pantalla_simulacion = st.empty()
-        pantalla_simulacion.info("Introduce un mensaje y pulsa 'Ejecutar' para ver el gráfico y los cálculos paso a paso.")
+        pantalla_simulacion.info("Introduce un mensaje y pulsa 'Ejecutar' para ver los cálculos en el plano 2D.")
 
-    # Ejecución de la animación
     if btn_ejecutar:
         if not msg.strip():
             st.warning("Por favor, introduce un texto válido.")
@@ -154,32 +121,32 @@ else:
             modo = 'cifrar' if op == "Cifrar" else 'descifrar'
             res_final, pasos = procesar_trigonometrico_paso_a_paso(msg, modo)
             
-            # Cálculo para que la animación dure aproximadamente 15 segundos en total
             num_pasos = len(pasos)
-            tiempo_espera = 15.0 / num_pasos if num_pasos > 0 else 2.0
-            tiempo_espera = max(1.5, tiempo_espera) # Al menos 1.5s por paso
+            tiempo_espera = max(1.5, 15.0 / num_pasos if num_pasos > 0 else 2.0)
             
             progreso_bar = col_derecha.progress(0)
             
             for i, paso in enumerate(pasos):
                 progreso_bar.progress((i + 1) / num_pasos)
                 
-                # Generamos el gráfico cartesiano en directo
-                fig = generar_grafico_plano(
-                    x=paso['posicion'],
-                    y_orig=paso['valor_original'],
-                    y_dest=paso['resultado_num'],
-                    char_orig=paso['original'],
-                    char_dest=paso['resultado_char'],
-                    op_nombre=paso['operacion']
-                )
+                # Datos para el gráfico nativo de Streamlit
+                df_puntos = pd.DataFrame({
+                    'Eje X (Posición)': [paso['posicion'], paso['posicion']],
+                    'Eje Y (Valor Alfabético)': [paso['valor_original'], paso['resultado_num']],
+                    'Estado': [f"Original '{paso['original']}'", f"Resultado '{paso['resultado_char']}'"]
+                })
                 
                 with pantalla_simulacion.container():
                     st.markdown(f"#### Paso {i+1} de {num_pasos} — Letra: **'{paso['original']}'**")
                     
-                    # Mostrar gráfico del plano cartesiano
-                    st.pyplot(fig)
-                    plt.close(fig)
+                    # Gráfico cartesiano mediante Streamlit Scatter Chart
+                    st.scatter_chart(
+                        df_puntos,
+                        x='Eje X (Posición)',
+                        y='Eje Y (Valor Alfabético)',
+                        color='Estado',
+                        size=200
+                    )
                     
                     st.write(f"**Función:** `{paso['operacion']}` | **Ángulo:** `{paso['angulo_deg']:.1f}°` | **Desplazamiento:** `{'+' if modo == 'cifrar' else '-'}{paso['desplazamiento']}`")
                     st.latex(
@@ -190,7 +157,6 @@ else:
                 
             col_derecha.success("¡Proceso completado!")
             
-            # Resultado final abajo
             st.divider()
             st.subheader("📌 Resultado Final")
             st.text_area("Mensaje obtenido:", value=res_final, help="Copia este mensaje")
