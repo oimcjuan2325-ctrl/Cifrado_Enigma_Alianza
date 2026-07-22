@@ -13,8 +13,8 @@ st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️",
 # ==============================================================================
 # 📧 CONFIGURACIÓN DE TU CORREO Y CUENTA LÍDER
 # ==============================================================================
-ADMIN_EMAIL = "oymc.juan2325@gmail.com"
-GMAIL_EMISOR = "oymc.juan2325@gmail.com"  
+ADMIN_EMAIL = "oimc.juan2325@gmail.com"
+GMAIL_EMISOR = "omc.juan2325@gmail.com"  
 PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google
 
 DB_FILE = "usuarios_faccion.json"
