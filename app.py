@@ -1,10 +1,9 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import time
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Cifrado Trigonométrico 2D", page_icon="🔒", layout="wide")
+st.set_page_config(page_title="Cifrado Trigonométrico", page_icon="🔒", layout="wide")
 
 # --- MOTOR DE CIFRADO Y DESCIFRADO TRIGONOMÉTRICO ---
 MAPA = {
@@ -15,21 +14,25 @@ MAPA = {
 }
 MAPA_INVERSO = {v: k for k, v in MAPA.items()}
 
-def calcular_desplazador(x, vi, operacion):
-    angulo = ((x * 15 + vi * 5) % 80 + 5) * (np.pi / 180)
+def calcular_desplazador(x, operacion):
+    """Calcula el desplazamiento basándose ÚNICAMENTE en la posición X de la letra"""
+    angulo_deg = ((x * 25) % 70) + 10  # Ángulo seguro entre 10° y 80°
+    angulo_rad = np.radians(angulo_deg)
+    
     if operacion == 'SEN':
-        val = np.sin(angulo)
+        val = np.sin(angulo_rad)
     elif operacion == 'COS':
-        val = np.cos(angulo)
+        val = np.cos(angulo_rad)
     else:  # TAN
-        val = np.tan(angulo)
+        val = np.tan(angulo_rad)
         
     desplazamiento = int(np.round(val * 10))
     if desplazamiento == 0:
         desplazamiento = 1
-    return desplazamiento, angulo
+    return desplazamiento, angulo_deg
 
 def obtener_operacion(idx_letra):
+    """Ciclo rotatorio: 1ª letra -> SEN, 2ª -> COS, 3ª -> TAN"""
     operaciones = ['SEN', 'COS', 'TAN']
     return operaciones[idx_letra % 3]
 
@@ -50,12 +53,13 @@ def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
             
         x = idx_letra + 1
         operacion = obtener_operacion(idx_letra)
-        shift, angulo = calcular_desplazador(x, vi, operacion)
+        shift, angulo_deg = calcular_desplazador(x, operacion)
         
+        # Aplicamos la matemática modular invertida correctamente
         if modo == 'cifrar':
             ci = (vi + shift) % 27
-            if ci <= 0: ci += 27
-        else:
+            if ci == 0: ci = 27
+        else:  # descifrar
             ci = (vi - shift) % 27
             if ci <= 0: ci += 27
             
@@ -67,7 +71,7 @@ def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
             'original': char,
             'valor_original': vi,
             'operacion': operacion,
-            'angulo_deg': np.degrees(angulo),
+            'angulo_deg': angulo_deg,
             'desplazamiento': shift,
             'resultado_num': ci,
             'resultado_char': char_res
@@ -99,7 +103,7 @@ if not st.session_state.autenticado:
                     st.session_state.bloqueado = True
                 st.warning(f"Contraseña incorrecta. Intento {st.session_state.intentos}/3")
 else:
-    st.title("Máquina del Cifrado Trigonométrico 2D")
+    st.title("Máquina del Cifrado Trigonométrico")
     
     col_izquierda, col_derecha = st.columns([1, 1], gap="large")
     
@@ -110,9 +114,9 @@ else:
         btn_ejecutar = st.button("Ejecutar")
 
     with col_derecha:
-        st.subheader("🎬 Simulación visual del proceso")
+        st.subheader("🎬 Simulación del proceso")
         pantalla_simulacion = st.empty()
-        pantalla_simulacion.info("Introduce un mensaje y pulsa 'Ejecutar' para ver los cálculos en el plano 2D.")
+        pantalla_simulacion.info("Introduce un mensaje y pulsa 'Ejecutar' para ver la animación paso a paso.")
 
     if btn_ejecutar:
         if not msg.strip():
@@ -129,26 +133,12 @@ else:
             for i, paso in enumerate(pasos):
                 progreso_bar.progress((i + 1) / num_pasos)
                 
-                # Datos para el gráfico nativo de Streamlit
-                df_puntos = pd.DataFrame({
-                    'Eje X (Posición)': [paso['posicion'], paso['posicion']],
-                    'Eje Y (Valor Alfabético)': [paso['valor_original'], paso['resultado_num']],
-                    'Estado': [f"Original '{paso['original']}'", f"Resultado '{paso['resultado_char']}'"]
-                })
-                
                 with pantalla_simulacion.container():
-                    st.markdown(f"#### Paso {i+1} de {num_pasos} — Letra: **'{paso['original']}'**")
+                    st.markdown(f"### Paso {i+1} de {num_pasos} — Letra: **'{paso['original']}'**")
                     
-                    # Gráfico cartesiano mediante Streamlit Scatter Chart
-                    st.scatter_chart(
-                        df_puntos,
-                        x='Eje X (Posición)',
-                        y='Eje Y (Valor Alfabético)',
-                        color='Estado',
-                        size=200
-                    )
-                    
+                    st.metric("Letra entrada", f"{paso['original']} (Posición: {paso['valor_original']})")
                     st.write(f"**Función:** `{paso['operacion']}` | **Ángulo:** `{paso['angulo_deg']:.1f}°` | **Desplazamiento:** `{'+' if modo == 'cifrar' else '-'}{paso['desplazamiento']}`")
+                    
                     st.latex(
                         rf"({paso['valor_original']} {'+' if modo == 'cifrar' else '-'} \text{{{paso['operacion']}}}(\theta)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
                     )
