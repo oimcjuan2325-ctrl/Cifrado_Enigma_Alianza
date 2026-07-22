@@ -7,18 +7,18 @@ import smtplib
 from email.mime.text import MIMEText
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Cifrado Trigonométrico - Red de Defensa", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️", layout="wide")
 
 # ==============================================================================
 # 📧 CONFIGURACIÓN DE TU CORREO (ADMINISTRADOR)
 # ==============================================================================
 ADMIN_EMAIL = "oimcjuan2325@gmail.com"
 GMAIL_EMISOR = "oimcjuan2325@gmail.com"  
-PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google configurada
+PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google
 
 DB_FILE = "usuarios_faccion.json"
 
-# --- FUNCIONES DE BASE DE DATOS (PERSISTENTE) ---
+# --- FUNCIONES DE BASE DE DATOS Y CORREO ---
 def cargar_usuarios():
     if not os.path.exists(DB_FILE):
         return {}
@@ -32,29 +32,54 @@ def guardar_usuarios(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-def enviar_notificacion_admin(gmail_solicitante, usuario_solicitante):
-    asunto = f"🚨 ALERTA FACCIÓN: Nueva solicitud de registro de {usuario_solicitante}"
-    cuerpo = f"""
-    Este correo ha intentado iniciar sesión/crear cuenta en la web:
-    
-    - Usuario: {usuario_solicitante}
-    - Gmail introducido: {gmail_solicitante}
-    
-    Por favor, entra al panel de administración de la web para Autorizar o No Autorizar esta cuenta.
-    """
+def enviar_email(destino, asunto, cuerpo):
     msg = MIMEText(cuerpo)
     msg['Subject'] = asunto
     msg['From'] = GMAIL_EMISOR
-    msg['To'] = ADMIN_EMAIL
+    msg['To'] = destino
 
     try:
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
-        server.sendmail(GMAIL_EMISOR, [ADMIN_EMAIL], msg.as_string())
+        server.sendmail(GMAIL_EMISOR, [destino], msg.as_string())
         server.quit()
         return True
     except Exception as e:
         return False
+
+def enviar_notificacion_admin(gmail_solicitante, usuario_solicitante):
+    asunto = f"🚨 ALERTA FACCIÓN: Nueva solicitud de registro de {usuario_solicitante}"
+    cuerpo = f"""
+Se ha registrado una nueva solicitud en la web:
+
+- Usuario: {usuario_solicitante}
+- Gmail: {gmail_solicitante}
+
+Inicia sesión en la web con tu cuenta de Líder (Juan) para AUTORIZAR o NO AUTORIZAR el acceso.
+"""
+    enviar_email(ADMIN_EMAIL, asunto, cuerpo)
+
+def enviar_confirmacion_usuario(gmail_destino, usuario, password, estado):
+    if estado == "AUTORIZADO":
+        asunto = "✅ Cuenta Autorizada - Inicie sesión en esta web"
+        cuerpo = f"""Felicitaciones, ya puede iniciar sesión con esta cuenta y con la contraseña la cual inició sesión anteriormente.
+
+----------------------------------------
+📌 SUS DATOS DE ACCESO:
+• Nombre de usuario: {usuario}
+• Contraseña: {password}
+----------------------------------------
+
+Ya puede acceder a la web e iniciar sesión.
+"""
+    else:
+        asunto = "❌ Estado de Solicitud de Cuenta"
+        cuerpo = f"""Lo sentimos mucho, pero su cuenta ({usuario}) no ha sido autorizada por el Administrador. 
+
+Por favor, inténtelo de nuevo más tarde o contacte con el Administrador.
+"""
+    
+    enviar_email(gmail_destino, asunto, cuerpo)
 
 # --- ESTILOS CSS MATRIX / HACKER ---
 st.markdown("""
@@ -90,9 +115,15 @@ st.markdown("""
         margin-bottom: 15px;
         text-align: center;
     }
-    div[data-baseweb="code-block"] {
-        border: 1px solid #00ff41 !important;
-        border-radius: 6px !important;
+    .notice-box {
+        background-color: #0e2a38;
+        color: #a3e5ff;
+        padding: 25px;
+        border-radius: 10px;
+        border: 2px solid #00aaff;
+        font-size: 18px;
+        text-align: center;
+        margin-top: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -201,22 +232,79 @@ def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
 # --- ESTADOS DE SESIÓN ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario_actual' not in st.session_state: st.session_state.usuario_actual = ""
+if 'modo_pantalla' not in st.session_state: st.session_state.modo_pantalla = "login"
 
 db_usuarios = cargar_usuarios()
 
+# Garantizar la existencia de la cuenta de Líder fija
+if "Juan" not in db_usuarios:
+    db_usuarios["Juan"] = {
+        "gmail": "oimcjuan2325@gmail.com",
+        "password": "2325",
+        "estado": "AUTORIZADO"
+    }
+    guardar_usuarios(db_usuarios)
+
 # --- PANTALLA DE ACCESO Y REGISTRO ---
 if not st.session_state.autenticado:
-    st.title("Inicie sesión al cifrado trigonométrico + transmisión binaria")
-    
-    tab1, tab2, tab_admin = st.tabs(["🔑 Ya tengo una cuenta", "📝 Crear una cuenta", "👑 Panel Líder"])
-    
-    # --- TAB 1: INICIO DE SESIÓN ---
-    with tab1:
-        st.subheader("Acceso a usuarios registrados")
-        u_login = st.text_input("Nombre de usuario:", key="login_user")
+
+    # 1. MODO: MENSAJE DE ESPERA POST-REGISTRO
+    if st.session_state.modo_pantalla == "registro_completado":
+        st.markdown("""
+        <div class="notice-box">
+            <h2>📩 Solicitud enviada con éxito</h2>
+            <p>Tiene que esperar hasta que se le autorice la cuenta.</p>
+            <p>Cuando tenga autorizada o no autorizada la cuenta, se le mandará un Gmail, por favor, esté atento al Gmail.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.write("")
+        if st.button("⬅️ Volver al Inicio de Sesión"):
+            st.session_state.modo_pantalla = "login"
+            st.rerun()
+
+    # 2. MODO: CREAR CUENTA NUEVA
+    elif st.session_state.modo_pantalla == "registro":
+        st.title("Crear cuenta nueva")
+        
+        reg_gmail = st.text_input("Introduce el Gmail deseado:", key="reg_gmail")
+        reg_user = st.text_input("Nombre de usuario:", key="reg_user")
+        reg_pass = st.text_input("Contraseña:", type="password", key="reg_pass")
+        
+        st.write("")
+        col_reg1, col_reg2 = st.columns([1, 2])
+        with col_reg1:
+            if st.button("Crear cuenta", key="btn_reg"):
+                if not reg_gmail or not reg_user or not reg_pass:
+                    st.warning("Por favor, rellene todos los campos.")
+                elif "@" not in reg_gmail:
+                    st.error("Lo sentimos mucho, pero esta cuenta no se puede utilizar. Elija otro Gmail.")
+                elif reg_user in db_usuarios:
+                    st.error("Ese nombre de usuario ya está ocupado. Elija otro.")
+                else:
+                    db_usuarios[reg_user] = {
+                        "gmail": reg_gmail,
+                        "password": reg_pass,
+                        "estado": "PENDIENTE"
+                    }
+                    guardar_usuarios(db_usuarios)
+                    enviar_notificacion_admin(reg_gmail, reg_user)
+                    st.session_state.modo_pantalla = "registro_completado"
+                    st.rerun()
+        with col_reg2:
+            if st.button("Cancelar y volver"):
+                st.session_state.modo_pantalla = "login"
+                st.rerun()
+
+    # 3. MODO: INICIO DE SESIÓN (POR DEFECTO)
+    else:
+        st.title("Inicie sesión en esta web")
+        st.subheader("Inicio de sesión")
+        
+        u_login = st.text_input("Nombre:", key="login_user")
         p_login = st.text_input("Contraseña:", type="password", key="login_pass")
         
-        if st.button("Iniciar Sesión", key="btn_login"):
+        st.write("")
+        if st.button("Iniciar sesión", key="btn_login"):
             if u_login in db_usuarios:
                 usr_data = db_usuarios[u_login]
                 if usr_data["password"] == p_login:
@@ -235,58 +323,10 @@ if not st.session_state.autenticado:
             else:
                 st.error("El usuario no existe. Por favor, cree una cuenta.")
 
-    # --- TAB 2: REGISTRO DE NUEVA CUENTA ---
-    with tab2:
-        st.subheader("Formulario de registro")
-        reg_gmail = st.text_input("Escriba su Gmail (el cual está autorizado):", key="reg_gmail")
-        reg_user = st.text_input("Escriba el nombre de usuario que desee:", key="reg_user")
-        reg_pass = st.text_input("Escriba su contraseña:", type="password", key="reg_pass")
-        
-        if st.button("Crear cuenta", key="btn_reg"):
-            if not reg_gmail or not reg_user or not reg_pass:
-                st.warning("Por favor, rellene todos los campos.")
-            elif "@" not in reg_gmail:
-                st.error("Lo sentimos mucho, pero esta cuenta no se puede utilizar. Elija otro Gmail.")
-            elif reg_user in db_usuarios:
-                st.error("Ese nombre de usuario ya está ocupado. Elija otro.")
-            else:
-                db_usuarios[reg_user] = {
-                    "gmail": reg_gmail,
-                    "password": reg_pass,
-                    "estado": "PENDIENTE"
-                }
-                guardar_usuarios(db_usuarios)
-                enviar_notificacion_admin(reg_gmail, reg_user)
-                st.info("Su solicitud ha sido enviada al Líder para su verificación. Cuando revise su cuenta, podrá iniciar sesión.")
-
-    # --- TAB 3: PANEL DEL LÍDER ---
-    with tab_admin:
-        st.subheader("🔒 Gestión de Autorizaciones (Líder)")
-        admin_pass = st.text_input("Contraseña Máxima del Líder:", type="password", key="pass_admin")
-        
-        if admin_pass == "MAQUINA":
-            st.success("Panel de Administrador Desbloqueado.")
-            
-            pendientes = {u: d for u, d in db_usuarios.items() if d["estado"] == "PENDIENTE"}
-            
-            if not pendientes:
-                st.write("No hay cuentas pendientes de revisión.")
-            else:
-                for usr, data in pendientes.items():
-                    st.write(f"👤 **Usuario:** `{usr}` | 📧 **Gmail:** `{data['gmail']}`")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        if st.button(f"✅ Autorizar a {usr}", key=f"aut_{usr}"):
-                            db_usuarios[usr]["estado"] = "AUTORIZADO"
-                            guardar_usuarios(db_usuarios)
-                            st.success(f"{usr} ha sido AUTORIZADO con éxito.")
-                            st.rerun()
-                    with col_b:
-                        if st.button(f"❌ No Autorizar a {usr}", key=f"no_aut_{usr}"):
-                            db_usuarios[usr]["estado"] = "RECHAZADO"
-                            guardar_usuarios(db_usuarios)
-                            st.error(f"{usr} ha sido RECHAZADO.")
-                            st.rerun()
+        st.divider()
+        if st.button("🔗 Crear una cuenta nueva", type="secondary"):
+            st.session_state.modo_pantalla = "registro"
+            st.rerun()
 
 # --- PANTALLA PRINCIPAL DE LA APLICACIÓN ---
 else:
@@ -299,6 +339,38 @@ else:
     st.title("📟 Terminal de Cifrado y Transmisión")
     st.caption(f"Sesión iniciada como: `{st.session_state.usuario_actual}`")
     
+    # --- SECCIÓN EXCLUSIVA DE LÍDER (Solo visible para Juan) ---
+    es_lider = (
+        st.session_state.usuario_actual == "Juan" and 
+        db_usuarios.get("Juan", {}).get("gmail") == "oimcjuan2325@gmail.com"
+    )
+    
+    if es_lider:
+        with st.expander("👑 PANEL SECRETO DE ADMINISTRACIÓN (LÍDER)", expanded=True):
+            st.write("Cuentas pendientes de revisión:")
+            pendientes = {u: d for u, d in db_usuarios.items() if d["estado"] == "PENDIENTE"}
+            
+            if not pendientes:
+                st.info("No hay solicitudes pendientes actualmente.")
+            else:
+                for usr, data in pendientes.items():
+                    st.write(f"👤 **Usuario:** `{usr}` | 📧 **Gmail:** `{data['gmail']}`")
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button(f"✅ Autorizar a {usr}", key=f"aut_{usr}"):
+                            db_usuarios[usr]["estado"] = "AUTORIZADO"
+                            guardar_usuarios(db_usuarios)
+                            enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "AUTORIZADO")
+                            st.success(f"{usr} ha sido AUTORIZADO y notificado por correo.")
+                            st.rerun()
+                    with col_b:
+                        if st.button(f"❌ No Autorizar a {usr}", key=f"no_aut_{usr}"):
+                            db_usuarios[usr]["estado"] = "RECHAZADO"
+                            guardar_usuarios(db_usuarios)
+                            enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "RECHAZADO")
+                            st.error(f"{usr} ha sido RECHAZADO y notificado por correo.")
+                            st.rerun()
+
     col_izquierda, col_derecha = st.columns([1, 1], gap="large")
     
     with col_izquierda:
@@ -388,4 +460,5 @@ else:
     if st.button("Cerrar Sesión"):
         st.session_state.autenticado = False
         st.session_state.usuario_actual = ""
+        st.session_state.modo_pantalla = "login"
         st.rerun()
