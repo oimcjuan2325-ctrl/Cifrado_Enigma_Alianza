@@ -20,14 +20,19 @@ st.markdown("""
         margin-top: 10px;
     }
     .matrix-text {
-        font-size: 22px;
+        font-size: 20px;
         font-weight: bold;
         letter-spacing: 2px;
     }
     .matrix-rain {
         color: #008011;
-        font-size: 14px;
+        font-size: 13px;
         opacity: 0.8;
+    }
+    /* Estilizado del bloque de código para alinearse con el diseño Matrix */
+    div[data-baseweb="code-block"] {
+        border: 1px solid #00ff41 !important;
+        border-radius: 6px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -76,7 +81,6 @@ def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
     resultado = []
     idx_letra = 0
     
-    # Si estamos descifrando y el usuario metió binario (1s y 0s), lo convertimos primero a texto
     mensaje_procesar = mensaje
     if modo == 'descifrar' and all(c in '01 ' for c in mensaje.strip()):
         mensaje_procesar = binario_a_texto(mensaje)
@@ -181,12 +185,12 @@ else:
             modo = 'cifrar' if op == "Cifrar" else 'descifrar'
             res_trig, pasos = procesar_trigonometrico_paso_a_paso(msg, modo)
             
-            num_pasos = len(pasos) + 1  # +1 por el paso Matrix final
+            num_pasos = len(pasos) + 1
             tiempo_espera = max(1.2, 12.0 / num_pasos)
             
             progreso_bar = col_derecha.progress(0)
             
-            # 1. Animación paso a paso de las letras (Trigonometría)
+            # 1. Pasos paso a paso
             for i, paso in enumerate(pasos):
                 progreso_bar.progress((i + 1) / num_pasos)
                 
@@ -208,7 +212,7 @@ else:
                 
                 time.sleep(tiempo_espera)
                 
-            # 2. Paso Final: Animación estilo Matrix / Hacker Binario
+            # 2. Paso Final con el Botón de Copiar Integrado en la Zona Subrayada
             progreso_bar.progress(1.0)
             
             if modo == 'cifrar':
@@ -217,16 +221,19 @@ else:
                 
                 with pantalla_simulacion.container():
                     st.markdown(f"### Paso {num_pasos} de {num_pasos} — ⚡ Conversión a Código Binario (Matrix)")
+                    
                     st.markdown(f"""
                     <div class="matrix-box">
-                        <div class="matrix-rain">01100101 01110011 01110100 01101111 00100000 01100101 01110011 00100000 01110101 01101110 00100000 01101101 01100101 01101110 01110011 01100001 01101010 01100101 00100000 01101000 01100001 01100011 01101011 01100101 01110010</div>
+                        <div class="matrix-rain">01100101 01110011 01110100 01101111 00100000 01100101 01110011 00100000 01110101 01101110 00100000 01101101 01100101 01101110 01110011 01100001 01101010 01100011 01101011 01100101 01110011</div>
                         <br>
                         <div>TEXTO CIFRADO: <span style="color:#ffffff;">{res_trig}</span></div>
                         <br>
                         <div class="matrix-text">⚡ BINARIO TRANSMITIDO ⚡</div>
-                        <div class="matrix-text" style="color:#00ff41; font-size: 18px; margin-top: 10px;">{res_binario}</div>
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    # AQUÍ ESTÁ EL BLOQUE SUBRAYADO CON BOTÓN DE COPIAR INTEGRADO (Símbolo de copiar arriba a la derecha)
+                    st.code(res_binario, language="text")
             else:
                 res_final_output = res_trig
                 
@@ -234,17 +241,17 @@ else:
                     st.markdown(f"### Paso {num_pasos} de {num_pasos} — 🔓 Decodificación de Pulsos Binarios Completa")
                     st.markdown(f"""
                     <div class="matrix-box">
-                        <div class="matrix-text">MENSAGE DESCIFRADO CON ÉXITO</div>
-                        <div class="matrix-text" style="color:#ffffff; font-size: 26px; margin-top: 10px;">{res_trig}</div>
+                        <div class="matrix-text">MENSAJE DESCIFRADO CON ÉXITO</div>
                     </div>
                     """, unsafe_allow_html=True)
+                    st.code(res_trig, language="text")
             
             time.sleep(2.0)
-            col_derecha.success("¡Proceso de cifrado y transmisión completado!")
+            col_derecha.success("¡Proceso completado!")
             
             st.divider()
             st.subheader("📌 Resultado Final")
-            st.text_area("Mensaje listo para enviar / copiar:", value=res_final_output, help="Copia este mensaje")
+            st.text_area("Mensaje listo para copiar o enviar:", value=res_final_output, help="Copia este mensaje")
 
     st.divider()
     if st.button("Cerrar sesión"):
