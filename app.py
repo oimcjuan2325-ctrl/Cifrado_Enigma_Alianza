@@ -4,7 +4,7 @@ import time
 import json
 import os
 import smtplib
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
@@ -15,8 +15,8 @@ st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️",
 # ==============================================================================
 ADMIN_USER = "Juan"
 ADMIN_PASS = "2325"
-ADMIN_EMAIL = "oimc.juan2325@gmail.com"
-GMAIL_EMISOR = "oimc.juan2325@gmail.com"  
+ADMIN_EMAIL = "oymc.juan2325@gmail.com"
+GMAIL_EMISOR = "oymc.juan2325@gmail.com"  
 PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google
 
 DB_FILE = "usuarios_faccion.json"
@@ -33,13 +33,13 @@ def obtener_fecha_actual():
 
 # --- FUNCIONES DE BASE DE DATOS Y CORREO ---
 def cargar_usuarios():
-    # Estructura base asegurando que Juan siempre exista como AUTORIZADO
     usuarios_base = {
         ADMIN_USER: {
             "gmail": ADMIN_EMAIL,
             "password": ADMIN_PASS,
             "estado": "AUTORIZADO",
-            "fecha_autorizacion": "22 de julio de 2026"
+            "fecha_autorizacion": "22 de julio de 2026",
+            "bloqueo_hasta": None
         }
     }
     if not os.path.exists(DB_FILE):
@@ -48,19 +48,18 @@ def cargar_usuarios():
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
             datos = json.load(f)
-            # Forzamos siempre que Juan esté en estado AUTORIZADO
             datos[ADMIN_USER] = usuarios_base[ADMIN_USER]
             return datos
     except:
         return usuarios_base
 
 def guardar_usuarios(data):
-    # Aseguramos que los datos de Juan no se sobreescriban nunca
     data[ADMIN_USER] = {
         "gmail": ADMIN_EMAIL,
         "password": ADMIN_PASS,
         "estado": "AUTORIZADO",
-        "fecha_autorizacion": "22 de julio de 2026"
+        "fecha_autorizacion": "22 de julio de 2026",
+        "bloqueo_hasta": None
     }
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
@@ -72,7 +71,6 @@ def enviar_email(destino, asunto, cuerpo):
     msg['To'] = destino
 
     try:
-        # Intento con SSL directo (Puerto 465)
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10)
         server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
         server.sendmail(GMAIL_EMISOR, [destino], msg.as_string())
@@ -80,7 +78,6 @@ def enviar_email(destino, asunto, cuerpo):
         return True
     except Exception as e:
         try:
-            # Fallback a STARTTLS (Puerto 587) por si el hosting bloquea el puerto 465
             server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
             server.starttls()
             server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
@@ -166,6 +163,16 @@ st.markdown("""
         font-size: 18px;
         text-align: center;
         margin-top: 20px;
+    }
+    .permanent-warning {
+        background-color: #4a0000;
+        color: #ffb3b3;
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #ff3333;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -318,7 +325,8 @@ if not st.session_state.autenticado:
                         "gmail": reg_gmail,
                         "password": reg_pass,
                         "estado": "PENDIENTE",
-                        "fecha_autorizacion": ""
+                        "fecha_autorizacion": "",
+                        "bloqueo_hasta": None
                     }
                     guardar_usuarios(db_usuarios)
                     enviar_notificacion_admin(reg_gmail, reg_user)
@@ -329,7 +337,49 @@ if not st.session_state.autenticado:
                 st.session_state.modo_pantalla = "login"
                 st.rerun()
 
-    # 3. MODO: INICIO DE SESIÓN (POR DEFECTO)
+    # 3. MODO: CERRAR SESIÓN PERMANENTE
+    elif st.session_state.modo_pantalla == "cierre_permanente":
+        st.title("Cerrar sesión permanente de cuenta")
+        
+        st.markdown("""
+        <div class="permanent-warning">
+            ⚠️ ADVERTENCIA: Cuando cierres sesión con esta cuenta, luego tendrás que esperar 5 días (120 horas) para volver a iniciar sesión con esta cuenta.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        perm_gmail = st.text_input("Introduce tu Gmail:", key="perm_gmail")
+        perm_user = st.text_input("Introduce tu Nombre de usuario:", key="perm_user")
+        perm_pass = st.text_input("Introduce tu Contraseña:", type="password", key="perm_pass")
+        
+        st.write("")
+        col_p1, col_p2 = st.columns([1, 2])
+        with col_p1:
+            if st.button("Cerrar sesión definitivamente", key="btn_ejecutar_cierre"):
+                if not perm_gmail or not perm_user or not perm_pass:
+                    st.warning("Por favor, rellene todos los campos.")
+                elif perm_user == ADMIN_USER:
+                    st.error("La cuenta administradora principal no puede cerrarse permanentemente.")
+                elif perm_user in db_usuarios:
+                    usr_data = db_usuarios[perm_user]
+                    if usr_data["gmail"] == perm_gmail and usr_data["password"] == perm_pass:
+                        # Bloquear cuenta por 5 días (120 horas)
+                        tiempo_bloqueo = datetime.now() + timedelta(hours=120)
+                        db_usuarios[perm_user]["bloqueo_hasta"] = tiempo_bloqueo.isoformat()
+                        guardar_usuarios(db_usuarios)
+                        st.success("Sesión cerrada definitivamente. Esta cuenta ha sido bloqueada temporalmente por 5 días.")
+                        time.sleep(2)
+                        st.session_state.modo_pantalla = "login"
+                        st.rerun()
+                    else:
+                        st.error("Los datos introducidos (Gmail, usuario o contraseña) no coinciden.")
+                else:
+                    st.error("El usuario especificado no existe en el sistema.")
+        with col_p2:
+            if st.button("Cancelar y volver"):
+                st.session_state.modo_pantalla = "login"
+                st.rerun()
+
+    # 4. MODO: INICIO DE SESIÓN (POR DEFECTO)
     else:
         st.title("Inicie sesión en esta web")
         st.subheader("Inicio de sesión")
@@ -348,6 +398,22 @@ if not st.session_state.autenticado:
                 st.rerun()
             elif u_login in db_usuarios:
                 usr_data = db_usuarios[u_login]
+                
+                # Comprobar si está bloqueado por cierre permanente de 5 días
+                bloqueo_hasta_str = usr_data.get("bloqueo_hasta")
+                if bloqueo_hasta_str:
+                    tiempo_limite = datetime.fromisoformat(bloqueo_hasta_str)
+                    if datetime.now() < tiempo_limite:
+                        tiempo_restante = tiempo_limite - datetime.now()
+                        horas_restantes = int(tiempo_restante.total_seconds() // 3600)
+                        minutos_restantes = int((tiempo_restante.total_seconds() % 3600) // 60)
+                        st.error(f"⚠️ Cuenta bloqueada por cierre definitivo. Debe esperar {horas_restantes} horas y {minutos_restantes} minutos para volver a iniciar sesión.")
+                        st.stop()
+                    else:
+                        # Ya pasaron los 5 días, quitamos el bloqueo
+                        usr_data["bloqueo_hasta"] = None
+                        guardar_usuarios(db_usuarios)
+
                 if usr_data["password"] == p_login:
                     if usr_data["estado"] == "AUTORIZADO":
                         st.session_state.autenticado = True
@@ -365,9 +431,15 @@ if not st.session_state.autenticado:
                 st.error("El usuario no existe. Por favor, cree una cuenta.")
 
         st.divider()
-        if st.button("🔗 Crear una cuenta nueva", type="secondary"):
-            st.session_state.modo_pantalla = "registro"
-            st.rerun()
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            if st.button("🔗 Crear una cuenta nueva", type="secondary"):
+                st.session_state.modo_pantalla = "registro"
+                st.rerun()
+        with col_btn2:
+            if st.button("🔒 Cerrar sesión permanente de cuenta", type="secondary"):
+                st.session_state.modo_pantalla = "cierre_permanente"
+                st.rerun()
 
 # --- PANTALLA PRINCIPAL DE LA APLICACIÓN ---
 else:
