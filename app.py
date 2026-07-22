@@ -6,6 +6,7 @@ import os
 import smtplib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
+from email.header import Header
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️", layout="wide")
@@ -15,8 +16,8 @@ st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️",
 # ==============================================================================
 ADMIN_USER = "Juan"
 ADMIN_PASS = "2325"
-ADMIN_EMAIL = "oymc.juan2325@gmail.com"
-GMAIL_EMISOR = "oymc.juan2325@gmail.com"  
+ADMIN_EMAIL = "oimcjuan2325@gmail.com"  # <--- Tu correo real actualizado
+GMAIL_EMISOR = "oimcjuan2325@gmail.com"  
 PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google
 
 DB_FILE = "usuarios_faccion.json"
@@ -66,20 +67,24 @@ def guardar_usuarios(data):
 
 def enviar_email(destino, asunto, cuerpo):
     msg = MIMEText(cuerpo, 'plain', 'utf-8')
-    msg['Subject'] = asunto
+    msg['Subject'] = Header(asunto, 'utf-8')
     msg['From'] = GMAIL_EMISOR
     msg['To'] = destino
 
+    # Método 1: STARTTLS Puerto 587 (El más fiable para Gmail API/App Password)
     try:
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10)
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
         server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
         server.sendmail(GMAIL_EMISOR, [destino], msg.as_string())
         server.quit()
         return True
-    except Exception as e:
+    except Exception as e1:
+        # Método 2: SSL Directo Puerto 465 (Alternativa por si falla el 587)
         try:
-            server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
-            server.starttls()
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
             server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
             server.sendmail(GMAIL_EMISOR, [destino], msg.as_string())
             server.quit()
@@ -89,14 +94,12 @@ def enviar_email(destino, asunto, cuerpo):
 
 def enviar_notificacion_admin(gmail_solicitante, usuario_solicitante):
     asunto = f"🚨 ALERTA FACCIÓN: Nueva solicitud de registro de {usuario_solicitante}"
-    cuerpo = f"""
-Se ha registrado una nueva solicitud en la web:
+    cuerpo = f"""Se ha registrado una nueva solicitud en la web:
 
 - Usuario: {usuario_solicitante}
 - Gmail: {gmail_solicitante}
 
-Inicia sesión en la web con tu cuenta de Líder para AUTORIZAR o NO AUTORIZAR el acceso.
-"""
+Inicia sesión en la web con tu cuenta de Líder para AUTORIZAR o NO AUTORIZAR el acceso."""
     enviar_email(ADMIN_EMAIL, asunto, cuerpo)
 
 def enviar_confirmacion_usuario(gmail_destino, usuario, password, estado):
@@ -110,14 +113,12 @@ def enviar_confirmacion_usuario(gmail_destino, usuario, password, estado):
 • Contraseña: {password}
 ----------------------------------------
 
-Ya puede acceder a la web e iniciar sesión.
-"""
+Ya puede acceder a la web e iniciar sesión."""
     else:
         asunto = "❌ Estado de Solicitud de Cuenta"
         cuerpo = f"""Lo sentimos mucho, pero su cuenta ({usuario}) no ha sido autorizada por el Administrador. 
 
-Por favor, inténtelo de nuevo más tarde o contacte con el Administrador.
-"""
+Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
     enviar_email(gmail_destino, asunto, cuerpo)
 
 # --- ESTILOS CSS MATRIX / HACKER ---
@@ -362,7 +363,6 @@ if not st.session_state.autenticado:
                 elif perm_user in db_usuarios:
                     usr_data = db_usuarios[perm_user]
                     if usr_data["gmail"] == perm_gmail and usr_data["password"] == perm_pass:
-                        # Bloquear cuenta por 5 días (120 horas)
                         tiempo_bloqueo = datetime.now() + timedelta(hours=120)
                         db_usuarios[perm_user]["bloqueo_hasta"] = tiempo_bloqueo.isoformat()
                         guardar_usuarios(db_usuarios)
@@ -389,7 +389,6 @@ if not st.session_state.autenticado:
         
         st.write("")
         if st.button("Iniciar sesión", key="btn_login"):
-            # REGLA DIOS: Si eres Juan con contraseña 2325 entras directo SIEMPRE
             if u_login == ADMIN_USER and p_login == ADMIN_PASS:
                 st.session_state.autenticado = True
                 st.session_state.usuario_actual = ADMIN_USER
@@ -399,7 +398,6 @@ if not st.session_state.autenticado:
             elif u_login in db_usuarios:
                 usr_data = db_usuarios[u_login]
                 
-                # Comprobar si está bloqueado por cierre permanente de 5 días
                 bloqueo_hasta_str = usr_data.get("bloqueo_hasta")
                 if bloqueo_hasta_str:
                     tiempo_limite = datetime.fromisoformat(bloqueo_hasta_str)
@@ -410,7 +408,6 @@ if not st.session_state.autenticado:
                         st.error(f"⚠️ Cuenta bloqueada por cierre definitivo. Debe esperar {horas_restantes} horas y {minutos_restantes} minutos para volver a iniciar sesión.")
                         st.stop()
                     else:
-                        # Ya pasaron los 5 días, quitamos el bloqueo
                         usr_data["bloqueo_hasta"] = None
                         guardar_usuarios(db_usuarios)
 
