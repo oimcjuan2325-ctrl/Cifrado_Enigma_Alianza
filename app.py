@@ -4,29 +4,54 @@ import time
 import json
 import os
 import smtplib
+from datetime import datetime
 from email.mime.text import MIMEText
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️", layout="wide")
 
 # ==============================================================================
-# 📧 CONFIGURACIÓN DE TU CORREO (ADMINISTRADOR)
+# 📧 CONFIGURACIÓN DE TU CORREO Y CUENTA LÍDER
 # ==============================================================================
-ADMIN_EMAIL = "oimcjuan2325@gmail.com"
-GMAIL_EMISOR = "oimcjuan2325@gmail.com"  
+ADMIN_EMAIL = "oymc.juan2325@gmail.com"
+GMAIL_EMISOR = "oymc.juan2325@gmail.com"  
 PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google
 
 DB_FILE = "usuarios_faccion.json"
 
+# Nombres de meses en español para la fecha
+MESES = {
+    1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
+    7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+}
+
+def obtener_fecha_actual():
+    now = datetime.now()
+    mes = MESES[now.month]
+    return f"{now.day} de {mes} de {now.year}"
+
 # --- FUNCIONES DE BASE DE DATOS Y CORREO ---
 def cargar_usuarios():
+    usuarios_base = {
+        "Juan": {
+            "gmail": "oymc.juan2325@gmail.com",
+            "password": "2325",
+            "estado": "AUTORIZADO",
+            "fecha_autorizacion": "22 de julio de 2026"
+        }
+    }
     if not os.path.exists(DB_FILE):
-        return {}
+        guardar_usuarios(usuarios_base)
+        return usuarios_base
     try:
         with open(DB_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            datos = json.load(f)
+            if "Juan" not in datos:
+                datos["Juan"] = usuarios_base["Juan"]
+                guardar_usuarios(datos)
+            return datos
     except:
-        return {}
+        return usuarios_base
 
 def guardar_usuarios(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
@@ -55,7 +80,7 @@ Se ha registrado una nueva solicitud en la web:
 - Usuario: {usuario_solicitante}
 - Gmail: {gmail_solicitante}
 
-Inicia sesión en la web con tu cuenta de Líder (Juan) para AUTORIZAR o NO AUTORIZAR el acceso.
+Inicia sesión en la web con tu cuenta de Líder para AUTORIZAR o NO AUTORIZAR el acceso.
 """
     enviar_email(ADMIN_EMAIL, asunto, cuerpo)
 
@@ -78,7 +103,6 @@ Ya puede acceder a la web e iniciar sesión.
 
 Por favor, inténtelo de nuevo más tarde o contacte con el Administrador.
 """
-    
     enviar_email(gmail_destino, asunto, cuerpo)
 
 # --- ESTILOS CSS MATRIX / HACKER ---
@@ -236,15 +260,6 @@ if 'modo_pantalla' not in st.session_state: st.session_state.modo_pantalla = "lo
 
 db_usuarios = cargar_usuarios()
 
-# Garantizar la existencia de la cuenta de Líder fija
-if "Juan" not in db_usuarios:
-    db_usuarios["Juan"] = {
-        "gmail": "oimcjuan2325@gmail.com",
-        "password": "2325",
-        "estado": "AUTORIZADO"
-    }
-    guardar_usuarios(db_usuarios)
-
 # --- PANTALLA DE ACCESO Y REGISTRO ---
 if not st.session_state.autenticado:
 
@@ -284,7 +299,8 @@ if not st.session_state.autenticado:
                     db_usuarios[reg_user] = {
                         "gmail": reg_gmail,
                         "password": reg_pass,
-                        "estado": "PENDIENTE"
+                        "estado": "PENDIENTE",
+                        "fecha_autorizacion": ""
                     }
                     guardar_usuarios(db_usuarios)
                     enviar_notificacion_admin(reg_gmail, reg_user)
@@ -332,44 +348,103 @@ if not st.session_state.autenticado:
 else:
     st.markdown("""
     <div class="warning-banner">
-        ⚠️ ADVERTENCIA: Ten cuidado con la información que revelas de esta web. Está estrictamente prohibido revelar información sobre esta web. Por favor, si revela algún tipo de información de esta web, será sancionado con una inhabilitación permanente de la cuenta.
+        ⚠️ ADVERTENCIA: Ten cuidado con la información que revelas de esta web. Está strictly prohibido revelar información sobre esta web. Por favor, si revela algún tipo de información de esta web, será sancionado con una inhabilitación permanente de la cuenta.
     </div>
     """, unsafe_allow_html=True)
     
     st.title("📟 Terminal de Cifrado y Transmisión")
     st.caption(f"Sesión iniciada como: `{st.session_state.usuario_actual}`")
     
-    # --- SECCIÓN EXCLUSIVA DE LÍDER (Solo visible para Juan) ---
+    # --- SECCIÓN EXCLUSIVA DE LÍDER (Únicamente para Juan con oymc.juan2325@gmail.com) ---
+    usr_info = db_usuarios.get(st.session_state.usuario_actual, {})
     es_lider = (
         st.session_state.usuario_actual == "Juan" and 
-        db_usuarios.get("Juan", {}).get("gmail") == "oimcjuan2325@gmail.com"
+        usr_info.get("gmail", "").lower() == ADMIN_EMAIL.lower()
     )
     
     if es_lider:
-        with st.expander("👑 PANEL SECRETO DE ADMINISTRACIÓN (LÍDER)", expanded=True):
-            st.write("Cuentas pendientes de revisión:")
-            pendientes = {u: d for u, d in db_usuarios.items() if d["estado"] == "PENDIENTE"}
+        with st.expander("👑 PANEL DE LÍDER", expanded=True):
+            tab_pend, tab_aut, tab_no_aut = st.tabs([
+                "⏳ Cuentas en proceso de autorización", 
+                "✅ Cuentas ya autorizadas", 
+                "❌ Cuentas no autorizadas"
+            ])
             
-            if not pendientes:
-                st.info("No hay solicitudes pendientes actualmente.")
-            else:
-                for usr, data in pendientes.items():
-                    st.write(f"👤 **Usuario:** `{usr}` | 📧 **Gmail:** `{data['gmail']}`")
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        if st.button(f"✅ Autorizar a {usr}", key=f"aut_{usr}"):
-                            db_usuarios[usr]["estado"] = "AUTORIZADO"
-                            guardar_usuarios(db_usuarios)
-                            enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "AUTORIZADO")
-                            st.success(f"{usr} ha sido AUTORIZADO y notificado por correo.")
-                            st.rerun()
-                    with col_b:
-                        if st.button(f"❌ No Autorizar a {usr}", key=f"no_aut_{usr}"):
-                            db_usuarios[usr]["estado"] = "RECHAZADO"
-                            guardar_usuarios(db_usuarios)
-                            enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "RECHAZADO")
-                            st.error(f"{usr} ha sido RECHAZADO y notificado por correo.")
-                            st.rerun()
+            # 1. CUENTAS EN PROCESO DE AUTORIZACIÓN
+            with tab_pend:
+                pendientes = {u: d for u, d in db_usuarios.items() if d["estado"] == "PENDIENTE"}
+                if not pendientes:
+                    st.info("No hay ninguna cuenta en proceso de autorización.")
+                else:
+                    for usr, data in pendientes.items():
+                        c1, c2, c3 = st.columns([2, 1, 1])
+                        with c1:
+                            st.write(f"👤 **{usr}** (`{data['gmail']}`)")
+                        with c2:
+                            if st.button(f"✅ Autorizar", key=f"aut_{usr}"):
+                                fecha_hoy = obtener_fecha_actual()
+                                db_usuarios[usr]["estado"] = "AUTORIZADO"
+                                db_usuarios[usr]["fecha_autorizacion"] = fecha_hoy
+                                guardar_usuarios(db_usuarios)
+                                enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "AUTORIZADO")
+                                st.success(f"{usr} autorizado el {fecha_hoy} y notificado.")
+                                time.sleep(1)
+                                st.rerun()
+                        with c3:
+                            if st.button(f"❌ No Autorizar", key=f"no_aut_{usr}"):
+                                db_usuarios[usr]["estado"] = "RECHAZADO"
+                                guardar_usuarios(db_usuarios)
+                                enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "RECHAZADO")
+                                st.error(f"{usr} rechazado y notificado.")
+                                time.sleep(1)
+                                st.rerun()
+                        st.divider()
+
+            # 2. CUENTAS YA AUTORIZADAS
+            with tab_aut:
+                autorizadas = {u: d for u, d in db_usuarios.items() if d["estado"] == "AUTORIZADO"}
+                if not autorizadas:
+                    st.info("No hay cuentas autorizadas.")
+                else:
+                    for usr, data in autorizadas.items():
+                        c1, c2 = st.columns([3, 1])
+                        fecha_str = data.get("fecha_autorizacion", "Fecha no registrada")
+                        with c1:
+                            st.write(f"👤 **{usr}** (`{data['gmail']}`) — Autorizado el: `{fecha_str}`")
+                        with c2:
+                            # Evita desautorizar la propia cuenta principal
+                            if usr != "Juan":
+                                if st.button(f"🚫 Desautorizar esta cuenta", key=f"desaut_{usr}"):
+                                    db_usuarios[usr]["estado"] = "RECHAZADO"
+                                    guardar_usuarios(db_usuarios)
+                                    st.warning(f"Se ha desautorizado la cuenta {usr}.")
+                                    time.sleep(1)
+                                    st.rerun()
+                            else:
+                                st.caption("👑 Cuenta Líder Principal")
+                        st.divider()
+
+            # 3. CUENTAS NO AUTORIZADAS
+            with tab_no_aut:
+                no_autorizadas = {u: d for u, d in db_usuarios.items() if d["estado"] == "RECHAZADO"}
+                if not no_autorizadas:
+                    st.info("No hay cuentas rechazadas/no autorizadas.")
+                else:
+                    for usr, data in no_autorizadas.items():
+                        c1, c2 = st.columns([3, 1])
+                        with c1:
+                            st.write(f"👤 **{usr}** (`{data['gmail']}`)")
+                        with c2:
+                            if st.button(f"✅ Autorizar esta cuenta", key=f"re_aut_{usr}"):
+                                fecha_hoy = obtener_fecha_actual()
+                                db_usuarios[usr]["estado"] = "AUTORIZADO"
+                                db_usuarios[usr]["fecha_autorizacion"] = fecha_hoy
+                                guardar_usuarios(db_usuarios)
+                                enviar_confirmacion_usuario(data["gmail"], usr, data["password"], "AUTORIZADO")
+                                st.success(f"{usr} ha sido autorizada el {fecha_hoy}.")
+                                time.sleep(1)
+                                st.rerun()
+                        st.divider()
 
     col_izquierda, col_derecha = st.columns([1, 1], gap="large")
     
