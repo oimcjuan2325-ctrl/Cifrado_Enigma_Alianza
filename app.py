@@ -536,7 +536,7 @@ else:
 
     st.divider()
 
-    # --- SECCIÓN DE SELECCIÓN DE MÉTODOS DE CIFRADO (INCLUYENDO LA SECCIÓN 22 ENIGMA) ---
+    # --- SECCIÓN DE SELECCIÓN DE MÉTODOS DE CIFRADO ---
     st.subheader("🎛️ Selección de Apartados de Cifrado / Descifrado")
     lista_secciones = [
         "1. Cifrado Trigonométrico y Binario",
@@ -546,53 +546,22 @@ else:
     st.divider()
 
     if "22. Máquina Enigma" in seccion_elegida:
-        st.subheader("🔓 Sección Específica: Simulador Máquina Enigma")
+        st.subheader("🔓 Sección Específica: Máquina Enigma")
         
-        # Enlace integrado solicitado
+        # Mensaje limpio con enlace directo integrado
         st.markdown(
             """
-            <div style="padding: 12px; border-radius: 6px; background-color: #0e2a38; border: 1px solid #00aaff; margin-bottom: 15px;">
-                ℹ️ <b>Aviso importante:</b> Por favor, <a href="https://descifradormasivomaquinaenigma-p2c9xef9h5c88k9nczj78p.streamlit.app/" target="_blank">accede a este link para mayor precisión en el descifrado de la máquina Enigma</a>.
+            <div style="padding: 20px; border-radius: 8px; background-color: #0e2a38; border: 2px solid #00aaff; text-align: center; margin-top: 20px;">
+                <p style="font-size: 18px; color: #a3e5ff; margin-bottom: 15px;">
+                    Por favor, entre a este link para mayor precisión en el descifrado de la máquina enigma.
+                </p>
+                <a href="https://descifradormasivomaquinaenigma-p2c9xef9h5c88k9nczj78p.streamlit.app/" target="_blank" style="font-size: 20px; font-weight: bold; color: #00ff41; text-decoration: underline;">
+                    🔗 Acceder al Descifrador Masivo de Máquina Enigma
+                </a>
             </div>
             """, 
             unsafe_allow_html=True
         )
-        
-        st.write("Configura los rotores y la clave secreta para descifrar el mensaje militar Enigma:")
-        txt_enigma = st.text_area("Texto cifrado por Enigma:", key="input_enigma")
-        clave_enigma = st.text_input("Clave inicial de rotores (ej: ABC):", value="ABC", key="key_enigma")
-        
-        if st.button("Ejecutar Descifrado Enigma", key="btn_ejec_enigma"):
-            if not txt_enigma or not clave_enigma:
-                st.warning("Introduce el texto cifrado y la clave de rotores.")
-            else:
-                alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                clave_upper = clave_enigma.upper()
-                
-                rotor_shifts = [ord(char) - ord('A') for char in clave_upper if char.isalpha()]
-                if not rotor_shifts:
-                    rotor_shifts = [1, 2, 3]
-                
-                res = []
-                for idx, c in enumerate(txt_enigma):
-                    if not c.isalpha():
-                        res.append(c)
-                        continue
-                    
-                    is_upper = c.isupper()
-                    c_upper = c.upper()
-                    
-                    current_shift = (rotor_shifts[idx % len(rotor_shifts)] + idx) % 26
-                    
-                    pos = alfabeto.index(c_upper)
-                    nueva_pos = (pos - current_shift) % 26
-                    letra_descifrada = alfabeto[nueva_pos]
-                    
-                    res.append(letra_descifrada if is_upper else letra_descifrada.lower())
-                    
-                texto_final = "".join(res)
-                st.success("¡Descifrado de Máquina Enigma completado con éxito!")
-                st.code(texto_final, language="text")
 
     else:
         col_izquierda, col_derecha = st.columns([1, 1], gap="large")
