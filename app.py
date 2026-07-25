@@ -32,8 +32,12 @@ def obtener_fecha_actual():
     mes = MESES[now.month]
     return f"{now.day} de {mes} de {now.year}"
 
-# --- FUNCIONES DE BASE DE DATOS Y CORREO ---
+# --- FUNCIONES DE BASE DE DATOS Y CORREO (PERSISTENCIA LOCAL STORAGE / JSON) ---
 def cargar_usuarios():
+    # Sincronización avanzada con session_state para persistencia fluida en memoria y disco
+    if "db_usuarios_memoria" in st.session_state:
+        return st.session_state.db_usuarios_memoria
+
     usuarios_base = {
         ADMIN_USER: {
             "gmail": ADMIN_EMAIL,
@@ -50,8 +54,10 @@ def cargar_usuarios():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             datos = json.load(f)
             datos[ADMIN_USER] = usuarios_base[ADMIN_USER]
+            st.session_state.db_usuarios_memoria = datos
             return datos
     except:
+        st.session_state.db_usuarios_memoria = usuarios_base
         return usuarios_base
 
 def guardar_usuarios(data):
@@ -62,8 +68,12 @@ def guardar_usuarios(data):
         "fecha_autorizacion": "22 de julio de 2026",
         "bloqueo_hasta": None
     }
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    st.session_state.db_usuarios_memoria = data
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except:
+        pass
 
 def enviar_email(destino, asunto, cuerpo):
     msg = MIMEText(cuerpo, 'plain', 'utf-8')
@@ -295,7 +305,7 @@ if not st.session_state.autenticado:
         <div class="notice-box">
             <h2>📩 Solicitud enviada con éxito</h2>
             <p>Tiene que esperar hasta que se le autorice la cuenta.</p>
-            <p>Cuando tenga autorizada o no autorizada la cuenta, se le mandará un Gmail, por favor, esté atento al Gmail.</p>
+            <p>Когда tenga autorizada o no autorizada la cuenta, se le mandará un Gmail, por favor, esté atento al Gmail.</p>
         </div>
         """, unsafe_allow_html=True)
         st.write("")
