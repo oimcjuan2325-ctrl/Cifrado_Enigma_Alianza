@@ -34,7 +34,6 @@ def obtener_fecha_actual():
 
 # --- FUNCIONES DE BASE DE DATOS Y CORREO (PERSISTENCIA LOCAL STORAGE / JSON) ---
 def cargar_usuarios():
-    # Sincronización avanzada con session_state para persistencia fluida en memoria y disco
     if "db_usuarios_memoria" in st.session_state:
         return st.session_state.db_usuarios_memoria
 
@@ -81,7 +80,6 @@ def enviar_email(destino, asunto, cuerpo):
     msg['From'] = GMAIL_EMISOR
     msg['To'] = destino
 
-    # Método 1: STARTTLS Puerto 587 (El más fiable para Gmail API/App Password)
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
         server.ehlo()
@@ -92,7 +90,6 @@ def enviar_email(destino, asunto, cuerpo):
         server.quit()
         return True
     except Exception as e1:
-        # Método 2: SSL Directo Puerto 465 (Alternativa por si falla el 587)
         try:
             server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
             server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
@@ -299,13 +296,12 @@ db_usuarios = cargar_usuarios()
 # --- PANTALLA DE ACCESO Y REGISTRO ---
 if not st.session_state.autenticado:
 
-    # 1. MODO: MENSAJE DE ESPERA POST-REGISTRO
     if st.session_state.modo_pantalla == "registro_completado":
         st.markdown("""
         <div class="notice-box">
             <h2>📩 Solicitud enviada con éxito</h2>
             <p>Tiene que esperar hasta que se le autorice la cuenta.</p>
-            <p>Когда tenga autorizada o no autorizada la cuenta, se le mandará un Gmail, por favor, esté atento al Gmail.</p>
+            <p>Cuando tenga autorizada o no autorizada la cuenta, se le mandará un Gmail, por favor, esté atento al Gmail.</p>
         </div>
         """, unsafe_allow_html=True)
         st.write("")
@@ -313,7 +309,6 @@ if not st.session_state.autenticado:
             st.session_state.modo_pantalla = "login"
             st.rerun()
 
-    # 2. MODO: CREAR CUENTA NUEVA
     elif st.session_state.modo_pantalla == "registro":
         st.title("Crear cuenta nueva")
         
@@ -348,7 +343,6 @@ if not st.session_state.autenticado:
                 st.session_state.modo_pantalla = "login"
                 st.rerun()
 
-    # 3. MODO: CERRAR SESIÓN PERMANENTE
     elif st.session_state.modo_pantalla == "cierre_permanente":
         st.title("Cerrar sesión permanente de cuenta")
         
@@ -389,7 +383,6 @@ if not st.session_state.autenticado:
                 st.session_state.modo_pantalla = "login"
                 st.rerun()
 
-    # 4. MODO: INICIO DE SESIÓN (POR DEFECTO)
     else:
         st.title("Inicie sesión en esta web")
         st.subheader("Inicio de sesión")
@@ -459,7 +452,6 @@ else:
     st.title("📟 Terminal de Cifrado y Transmisión")
     st.caption(f"Sesión iniciada como: `{st.session_state.usuario_actual}`")
     
-    # --- SECCIÓN EXCLUSIVA DE LÍDER ---
     es_lider = (st.session_state.usuario_actual == ADMIN_USER)
     
     if es_lider:
@@ -470,7 +462,6 @@ else:
                 "❌ Cuentas no autorizadas"
             ])
             
-            # 1. CUENTAS EN PROCESO DE AUTORIZACIÓN
             with tab_pend:
                 pendientes = {u: d for u, d in db_usuarios.items() if d["estado"] == "PENDIENTE" and u != ADMIN_USER}
                 if not pendientes:
@@ -500,7 +491,6 @@ else:
                                 st.rerun()
                         st.divider()
 
-            # 2. CUENTAS YA AUTORIZADAS
             with tab_aut:
                 autorizadas = {u: d for u, d in db_usuarios.items() if d["estado"] == "AUTORIZADO"}
                 if not autorizadas:
@@ -523,7 +513,6 @@ else:
                                 st.caption("👑 Cuenta Líder Principal")
                         st.divider()
 
-            # 3. CUENTAS NO AUTORIZADAS
             with tab_no_aut:
                 no_autorizadas = {u: d for u, d in db_usuarios.items() if d["estado"] == "RECHAZADO" and u != ADMIN_USER}
                 if not no_autorizadas:
@@ -545,90 +534,148 @@ else:
                                 st.rerun()
                         st.divider()
 
-    col_izquierda, col_derecha = st.columns([1, 1], gap="large")
-    
-    with col_izquierda:
-        st.subheader("⚙️ Controles de Operación")
-        op = st.radio("Acción a realizar:", ["Cifrar", "Descifrar"])
-        msg = st.text_input("Mensaje (Texto o Cadenas Binarias):")
-        btn_ejecutar = st.button("Procesar y Transmitir")
+    st.divider()
 
-    with col_derecha:
-        st.subheader("🎬 Estado de la Transmisión")
-        pantalla_simulacion = st.empty()
-        pantalla_simulacion.info("Introduce un mensaje para iniciar el cifrado/descifrado en vivo.")
+    # --- SECCIÓN DE SELECCIÓN DE MÉTODOS DE CIFRADO (INCLUYENDO LA SECCIÓN 22 ENIGMA) ---
+    st.subheader("🎛️ Selección de Apartados de Cifrado / Descifrado")
+    lista_secciones = [
+        "1. Cifrado Trigonométrico y Binario",
+        "22. Máquina Enigma (Simulador de rotores militares)"
+    ]
+    seccion_elegida = st.selectbox("Elige la sección en la que deseas operar:", lista_secciones)
+    st.divider()
 
-    if btn_ejecutar:
-        if not msg.strip():
-            st.warning("Por favor, introduce un texto válido.")
-        else:
-            modo = 'cifrar' if op == "Cifrar" else 'descifrar'
-            res_trig, pasos = procesar_trigonometrico_paso_a_paso(msg, modo)
-            
-            num_pasos = len(pasos) + 1
-            tiempo_espera = max(1.2, 12.0 / num_pasos)
-            
-            progreso_bar = col_derecha.progress(0)
-            
-            for i, paso in enumerate(pasos):
-                progreso_bar.progress((i + 1) / num_pasos)
-                
-                with pantalla_simulacion.container():
-                    st.markdown(f"### Paso {i+1} de {num_pasos} — Procesando: **'{paso['original']}'**")
-                    
-                    if modo == 'cifrar':
-                        st.metric("Letra origen", f"{paso['original']} (Posición: {paso['valor_original']})")
-                        st.write(f"**Cálculo:** `{paso['operacion']}({paso['valor_original']}°)` | **Desplazamiento:** `+{paso['desplazamiento']}`")
-                        st.latex(
-                            rf"({paso['valor_original']} + \text{{{paso['operacion']}}}({paso['valor_original']}^\circ)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
-                        )
-                    else:
-                        st.metric("Letra recibida", f"{paso['original']} (Posición: {paso['valor_original']})")
-                        st.write(f"**Búsqueda inversa con:** `{paso['operacion']}` | **Desplazamiento:** `-{paso['desplazamiento']}`")
-                        st.latex(
-                            rf"({paso['valor_original']} - \text{{{paso['operacion']}}}(\text{{origen}}^\circ)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
-                        )
-                
-                time.sleep(tiempo_espera)
-                
-            progreso_bar.progress(1.0)
-            
-            if modo == 'cifrar':
-                res_binario = texto_a_binario(res_trig)
-                res_final_output = res_binario
-                
-                with pantalla_simulacion.container():
-                    st.markdown(f"### Paso {num_pasos} de {num_pasos} — ⚡ Conversión de Datos a Pulsos Binarios")
-                    
-                    st.markdown(f"""
-                    <div class="matrix-box">
-                        <div class="matrix-rain">01100101 01110011 01110100 01101111 00100000 01100101 01110011</div>
-                        <br>
-                        <div>CAPA TRIGONOMÉTRICA: <span style="color:#ffffff;">{res_trig}</span></div>
-                        <br>
-                        <div class="matrix-text">⚡ PAQUETE BINARIO SEGURO ⚡</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.code(res_binario, language="text")
+    if "22. Máquina Enigma" in seccion_elegida:
+        st.subheader("🔓 Sección Específica: Simulador Máquina Enigma")
+        
+        # Enlace integrado solicitado
+        st.markdown(
+            """
+            <div style="padding: 12px; border-radius: 6px; background-color: #0e2a38; border: 1px solid #00aaff; margin-bottom: 15px;">
+                ℹ️ <b>Aviso importante:</b> Por favor, <a href="https://descifradormasivomaquinaenigma-p2c9xef9h5c88k9nczj78p.streamlit.app/" target="_blank">accede a este link para mayor precisión en el descifrado de la máquina Enigma</a>.
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        st.write("Configura los rotores y la clave secreta para descifrar el mensaje militar Enigma:")
+        txt_enigma = st.text_area("Texto cifrado por Enigma:", key="input_enigma")
+        clave_enigma = st.text_input("Clave inicial de rotores (ej: ABC):", value="ABC", key="key_enigma")
+        
+        if st.button("Ejecutar Descifrado Enigma", key="btn_ejec_enigma"):
+            if not txt_enigma or not clave_enigma:
+                st.warning("Introduce el texto cifrado y la clave de rotores.")
             else:
-                res_final_output = res_trig
+                alfabeto = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                clave_upper = clave_enigma.upper()
                 
-                with pantalla_simulacion.container():
-                    st.markdown(f"### Paso {num_pasos} de {num_pasos} — 🔓 Mensaje Decodificado")
-                    st.markdown(f"""
-                    <div class="matrix-box">
-                        <div class="matrix-text">MENSAJE ORIGINAL RECUPERADO</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.code(res_trig, language="text")
-            
-            time.sleep(2.0)
-            col_derecha.success("¡Operación completada con éxito!")
-            
-            st.divider()
-            st.subheader("📌 Salida del Mensaje")
-            st.text_area("Resultado:", value=res_final_output, help="Copia este texto para transmitirlo")
+                rotor_shifts = [ord(char) - ord('A') for char in clave_upper if char.isalpha()]
+                if not rotor_shifts:
+                    rotor_shifts = [1, 2, 3]
+                
+                res = []
+                for idx, c in enumerate(txt_enigma):
+                    if not c.isalpha():
+                        res.append(c)
+                        continue
+                    
+                    is_upper = c.isupper()
+                    c_upper = c.upper()
+                    
+                    current_shift = (rotor_shifts[idx % len(rotor_shifts)] + idx) % 26
+                    
+                    pos = alfabeto.index(c_upper)
+                    nueva_pos = (pos - current_shift) % 26
+                    letra_descifrada = alfabeto[nueva_pos]
+                    
+                    res.append(letra_descifrada if is_upper else letra_descifrada.lower())
+                    
+                texto_final = "".join(res)
+                st.success("¡Descifrado de Máquina Enigma completado con éxito!")
+                st.code(texto_final, language="text")
+
+    else:
+        col_izquierda, col_derecha = st.columns([1, 1], gap="large")
+        
+        with col_izquierda:
+            st.subheader("⚙️ Controles de Operación")
+            op = st.radio("Acción a realizar:", ["Cifrar", "Descifrar"])
+            msg = st.text_input("Mensaje (Texto o Cadenas Binarias):")
+            btn_ejecutar = st.button("Procesar y Transmitir")
+
+        with col_derecha:
+            st.subheader("🎬 Estado de la Transmisión")
+            pantalla_simulacion = st.empty()
+            pantalla_simulacion.info("Introduce un mensaje para iniciar el cifrado/descifrado en vivo.")
+
+        if 'btn_ejecutar' in locals() and btn_ejecutar:
+            if not msg.strip():
+                st.warning("Por favor, introduce un texto válido.")
+            else:
+                modo = 'cifrar' if op == "Cifrar" else 'descifrar'
+                res_trig, pasos = procesar_trigonometrico_paso_a_paso(msg, modo)
+                
+                num_pasos = len(pasos) + 1
+                tiempo_espera = max(1.2, 12.0 / num_pasos)
+                
+                progreso_bar = col_derecha.progress(0)
+                
+                for i, paso in enumerate(pasos):
+                    progreso_bar.progress((i + 1) / num_pasos)
+                    
+                    with pantalla_simulacion.container():
+                        st.markdown(f"### Paso {i+1} de {num_pasos} — Procesando: **'{paso['original']}'**")
+                        
+                        if modo == 'cifrar':
+                            st.metric("Letra origen", f"{paso['original']} (Posición: {paso['valor_original']})")
+                            st.write(f"**Cálculo:** `{paso['operacion']}({paso['valor_original']}°)` | **Desplazamiento:** `+{paso['desplazamiento']}`")
+                            st.latex(
+                                rf"({paso['valor_original']} + \text{{{paso['operacion']}}}({paso['valor_original']}^\circ)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
+                            )
+                        else:
+                            st.metric("Letra recibida", f"{paso['original']} (Posición: {paso['valor_original']})")
+                            st.write(f"**Búsqueda inversa con:** `{paso['operacion']}` | **Desplazamiento:** `-{paso['desplazamiento']}`")
+                            st.latex(
+                                rf"({paso['valor_original']} - \text{{{paso['operacion']}}}(\text{{origen}}^\circ)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
+                            )
+                    
+                    time.sleep(tiempo_espera)
+                    
+                progreso_bar.progress(1.0)
+                
+                if modo == 'cifrar':
+                    res_binario = texto_a_binario(res_trig)
+                    res_final_output = res_binario
+                    
+                    with pantalla_simulacion.container():
+                        st.markdown(f"### Paso {num_pasos} de {num_pasos} — ⚡ Conversión de Datos a Pulsos Binarios")
+                        st.markdown(f"""
+                        <div class="matrix-box">
+                            <div class="matrix-rain">01100101 01110011 01110100 01101111 00100000 01100101 01110011</div>
+                            <br>
+                            <div>CAPA TRIGONOMÉTRICA: <span style="color:#ffffff;">{res_trig}</span></div>
+                            <br>
+                            <div class="matrix-text">⚡ PAQUETE BINARIO SEGURO ⚡</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.code(res_binario, language="text")
+                else:
+                    res_final_output = res_trig
+                    with pantalla_simulacion.container():
+                        st.markdown(f"### Paso {num_pasos} de {num_pasos} — 🔓 Mensaje Decodificado")
+                        st.markdown(f"""
+                        <div class="matrix-box">
+                            <div class="matrix-text">MENSAJE ORIGINAL RECUPERADO</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.code(res_trig, language="text")
+                
+                time.sleep(2.0)
+                col_derecha.success("¡Operación completada con éxito!")
+                
+                st.divider()
+                st.subheader("📌 Salida del Mensaje")
+                st.text_area("Resultado:", value=res_final_output, help="Copia este texto para transmitirlo")
 
     st.divider()
     if st.button("Cerrar Sesión"):
