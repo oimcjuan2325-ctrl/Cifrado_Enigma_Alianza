@@ -1,19 +1,22 @@
 from datetime import datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
+import base64
 import json
 import os
 import smtplib
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import streamlit as st
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
-    page_title="Inicie sesión en esta web", page_icon="🛡️", layout="wide"
+    page_title="Terminal de Cifrado Facción", page_icon="🛡️", layout="wide"
 )
 
 # ==============================================================================
-# 📧 CONFIGURACIÓN DE TU CORREO Y CUENTA LÍDER
+# 📧 CONFIGURACIÓN DE CORREO Y LÍDER
 # ==============================================================================
 ADMIN_USER = "Juan"
 ADMIN_PASS = "2325"
@@ -43,6 +46,19 @@ def obtener_fecha_actual():
   now = datetime.now()
   mes = MESES[now.month]
   return f"{now.day} de {mes} de {now.year}"
+
+
+# --- FUNCIONES DE CLAVE Y CIFRADO COMPACTO ---
+def generar_clave_desde_frase(frase_secreta: str) -> bytes:
+  """Deriva una clave segura de 32 bytes a partir de cualquier frase o contraseña."""
+  salt = b"faccion_salt_fija_2026"
+  kdf = PBKDF2HMAC(
+      algorithm=hashes.SHA256(),
+      length=32,
+      salt=salt,
+      iterations=100000,
+  )
+  return base64.urlsafe_b64encode(kdf.derive(frase_secreta.encode()))
 
 
 # --- FUNCIONES DE BASE DE DATOS Y CORREO ---
@@ -104,14 +120,14 @@ def enviar_email(destino, asunto, cuerpo):
     server.sendmail(GMAIL_EMISOR, [destino], msg.as_string())
     server.quit()
     return True
-  except Exception as e1:
+  except Exception:
     try:
       server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15)
       server.login(GMAIL_EMISOR, PASSWORD_EMISOR)
       server.sendmail(GMAIL_EMISOR, [destino], msg.as_string())
       server.quit()
       return True
-    except Exception as e2:
+    except Exception:
       return False
 
 
@@ -503,33 +519,34 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO SEGURO (FERNET / AES)
+  # 🔐 SISTEMA DE CIFRADO FUNCIONAL Y CORTO
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
   with st.sidebar:
-    st.header("🔑 Gestión de Cifrado")
+    st.header("🔑 Llave de Encriptación")
     st.write(
-        "Utiliza este panel para generar o introducir la clave de seguridad"
-        " simétrica."
+        "Introduce la **Frase Secreta de Facción**. Todos los miembros que"
+        " utilicen esta misma frase podrán cifrar y descifrar los mensajes"
+        " mutuamente."
     )
 
-    if st.button("Generar Nueva Clave Secreta"):
-      nueva_clave = Fernet.generate_key().decode()
-      st.session_state["clave_secreta_faccion"] = nueva_clave
-      st.success("¡Clave generada con éxito!")
-
-    clave_actual = st.text_input(
-        "Clave Secreta (Fernet Key):",
-        value=st.session_state.get("clave_secreta_faccion", ""),
+    frase_input = st.text_input(
+        "Frase Secreta Compartida:",
+        value=st.session_state.get("frase_secreta_texto", ""),
         type="password",
-        help=(
-            "Introduce la clave secreta de 32 bytes para cifrar o descifrar"
-            " mensajes."
-        ),
+        help="Contraseña clave que comparte tu grupo.",
     )
-    if clave_actual:
-      st.session_state["clave_secreta_faccion"] = clave_actual
+
+    if frase_input:
+      st.session_state["frase_secreta_texto"] = frase_input
+      # Generamos la clave real de Fernet basada en esta frase
+      st.session_state["clave_fernet_activa"] = generar_clave_desde_frase(
+          frase_input
+      )
+      st.success("✅ Clave activada y vinculada.")
+    else:
+      st.warning("⚠️ Escribe una frase secreta para operar.")
 
   tab_cifrar, tab_descifrar = st.tabs(
       ["🔒 Cifrar Mensaje", "🔓 Descifrar Mensaje"]
@@ -539,44 +556,38 @@ else:
     msg_claro = st.text_area("Mensaje en claro a proteger:")
     if st.button("Cifrar Transmisión"):
       if not msg_claro.strip():
-        st.warning("Por favor, introduce un mensaje válido.")
-      elif not st.session_state.get("clave_secreta_faccion"):
-        st.error(
-            "Falta la Clave Secreta. Genéralela o introdúzcala en la barra"
-            " lateral."
-        )
+        st.warning("Por favor, introduce un mensaje.")
+      elif "clave_fernet_activa" not in st.session_state:
+        st.error("Falta definir la Frase Secreta en la barra lateral.")
       else:
         try:
-          f = Fernet(st.session_state["clave_secreta_faccion"].encode())
+          # Cifrado real activo y operativo
+          f = Fernet(st.session_state["clave_fernet_activa"])
           token_cifrado = f.encrypt(msg_claro.encode()).decode()
-          st.success("¡Transmisión cifrada de forma indescifrable!")
-          st.text_area(
-              "Resultado Cifrado (Copia este código para enviarlo):",
-              value=token_cifrado,
-          )
+
+          st.success("¡Transmisión cifrada correctamente!")
+          st.write("Copia el siguiente código compacto:")
+          st.code(token_cifrado, language="text")
         except Exception as e:
-          st.error(f"Error al cifrar: comprueba que la clave sea válida. {e}")
+          st.error(f"Error al cifrar: {e}")
 
   with tab_descifrar:
     msg_cifrado = st.text_area("Introduce el código cifrado recibido:")
     if st.button("Descifrar Transmisión"):
       if not msg_cifrado.strip():
         st.warning("Por favor, introduce el texto cifrado.")
-      elif not st.session_state.get("clave_secreta_faccion"):
-        st.error(
-            "Falta la Clave Secreta. Introdúzcala en la barra lateral para poder"
-            " leer el mensaje."
-        )
+      elif "clave_fernet_activa" not in st.session_state:
+        st.error("Falta definir la Frase Secreta en la barra lateral.")
       else:
         try:
-          f = Fernet(st.session_state["clave_secreta_faccion"].encode())
-          mensaje_descifrado = f.decrypt(msg_cifrado.encode()).decode()
+          f = Fernet(st.session_state["clave_fernet_activa"])
+          mensaje_descifrado = f.decrypt(msg_cifrado.encode().strip()).decode()
           st.success("¡Mensaje descifrado con éxito!")
           st.markdown(f"**Mensaje original:** `{mensaje_descifrado}`")
         except Exception:
           st.error(
-              "Error crítico: La clave secreta es incorrecta o el mensaje ha"
-              " sido alterado."
+              "Error: La frase secreta es incorrecta o el código cifrado está"
+              " incompleto."
           )
 
   st.divider()
