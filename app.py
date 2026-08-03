@@ -4,10 +4,12 @@ from email.header import Header
 from email.mime.text import MIMEText
 import json
 import os
+import random
 import smtplib
 import time
+import urllib.request
 import zlib
-from cryptography.fernet import Fernet
+import streamlit as str_module  # Evitar conflictos de nombres con streamlit as st
 import streamlit as st
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
@@ -16,8 +18,16 @@ st.set_page_config(
 )
 
 # ==============================================================================
-# 📧 CONFIGURACIÓN DE CORREO Y LÍDER
+# 🐙 CONFIGURACIÓN DE GITHUB COMO BASE DE DATOS
 # ==============================================================================
+try:
+  GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+  GITHUB_REPO = st.secrets["GITHUB_REPO"]  # Ej: "usuario/repositorio"
+  GITHUB_PATH = st.secrets.get("GITHUB_PATH", "usuarios_faccion.json")
+  USAR_GITHUB = True
+except Exception:
+  USAR_GITHUB = False
+
 ADMIN_USER = "Juan"
 ADMIN_PASS = "2325"
 ADMIN_EMAIL = "oimcjuan2325@gmail.com"
@@ -48,7 +58,7 @@ def obtener_fecha_actual():
   return f"{now.day} de {mes} de {now.year}"
 
 
-# --- FUNCIONES DE BASE DE DATOS Y CORREO ---
+# --- FUNCIONES DE SINCRONIZACIÓN CON GITHUB ---
 def cargar_usuarios():
   if "db_usuarios_memoria" in st.session_state:
     return st.session_state.db_usuarios_memoria
@@ -62,6 +72,31 @@ def cargar_usuarios():
           "bloqueo_hasta": None,
       }
   }
+
+  if USAR_GITHUB:
+    try:
+      url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PATH}"
+      req = urllib.request.Request(
+          url,
+          headers={
+              "Authorization": f"token {GITHUB_TOKEN}",
+              "Accept": "application/vnd.github.v3+json",
+              "User-Agent": "Streamlit-App",
+          },
+      )
+      with urllib.request.urlopen(req) as response:
+        data_json = json.loads(response.read().decode("utf-8"))
+        contenido_decodificado = base64.b64decode(
+            data_json["content"]
+        ).decode("utf-8")
+        datos = json.loads(contenido_decodificado)
+        datos[ADMIN_USER] = usuarios_base[ADMIN_USER]
+        st.session_state.db_usuarios_memoria = datos
+        return datos
+    except Exception:
+      pass
+
+  # Fallback local si GitHub no está configurado o falla
   if not os.path.exists(DB_FILE):
     guardar_usuarios(usuarios_base)
     return usuarios_base
@@ -85,11 +120,59 @@ def guardar_usuarios(data):
       "bloqueo_hasta": None,
   }
   st.session_state.db_usuarios_memoria = data
+
+  # Guardar localmente
   try:
     with open(DB_FILE, "w", encoding="utf-8") as f:
       json.dump(data, f, ensure_ascii=False, indent=4)
   except:
     pass
+
+  # Guardar automáticamente en GitHub
+  if USAR_GITHUB:
+    try:
+      url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PATH}"
+      req_get = urllib.request.Request(
+          url,
+          headers={
+              "Authorization": f"token {GITHUB_TOKEN}",
+              "Accept": "application/vnd.github.v3+json",
+              "User-Agent": "Streamlit-App",
+          },
+      )
+      sha = None
+      try:
+        with urllib.request.urlopen(req_get) as resp:
+          sha = json.loads(resp.read().decode("utf-8"))["sha"]
+      except:
+        pass
+
+      contenido_str = json.dumps(data, ensure_ascii=False, indent=4)
+      contenido_bytes = base64.b64encode(contenido_str.encode("utf-8")).decode(
+          "utf-8"
+      )
+
+      payload = {
+          "message": "Actualización automática de usuarios desde la web",
+          "content": contenido_bytes,
+      }
+      if sha:
+        payload["sha"] = sha
+
+      req_put = urllib.request.Request(
+          url,
+          data=json.dumps(payload).encode("utf-8"),
+          headers={
+              "Authorization": f"token {GITHUB_TOKEN}",
+              "Accept": "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
+              "User-Agent": "Streamlit-App",
+          },
+          method="PUT",
+      )
+      urllib.request.urlopen(req_put)
+    except Exception:
+      pass
 
 
 def enviar_email(destino, asunto, cuerpo):
@@ -151,21 +234,25 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
   enviar_email(gmail_destino, asunto, cuerpo)
 
 
-# --- FUNCIONES DE ULTRA-COMPRESIÓN Y BASE64 COMPACTO ---
-def cifrar_ultracorto(token_bytes):
-  comprimido = zlib.compress(token_bytes, level=9)
-  encoded = (
-      base64.urlsafe_b64encode(comprimido).rstrip(b"=").decode("utf-8")
-  )
+# --- SISTEMA DE CIFRADO SIN CLAVES ---
+def cifrar_sin_claves(texto):
+  bytes_texto = zlib.compress(texto.encode("utf-8"), level=9)
+  semilla = random.randint(1, 255)
+  bytes_cifrados = bytes([b ^ semilla for b in bytes_texto])
+  paquete = bytes([semilla]) + bytes_cifrados
+  encoded = base64.urlsafe_b64encode(paquete).rstrip(b"=").decode("utf-8")
   return encoded
 
 
-def descifrar_ultracorto(texto_cortito):
+def descifrar_sin_claves(texto_cortito):
   padding = 4 - (len(texto_cortito) % 4)
   if padding < 4:
     texto_cortito += "=" * padding
-  comprimido = base64.urlsafe_b64decode(texto_cortito.encode("utf-8"))
-  return zlib.decompress(comprimido)
+  paquete = base64.urlsafe_b64decode(texto_cortito.encode("utf-8"))
+  semilla = paquete[0]
+  bytes_cifrados = paquete[1:]
+  bytes_texto = bytes([b ^ semilla for b in bytes_cifrados])
+  return zlib.decompress(bytes_texto).decode("utf-8")
 
 
 # --- ESTILOS CSS ---
@@ -201,17 +288,6 @@ st.markdown(
         font-weight: bold;
         text-align: center;
         margin-bottom: 20px;
-    }
-    .key-warning {
-        background-color: #4a2c00;
-        color: #ffcc00;
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #ff9900;
-        font-size: 13px;
-        text-align: center;
-        margin-top: 8px;
-        margin-bottom: 15px;
     }
 </style>
 """,
@@ -534,37 +610,11 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO ULTRA-COMPACTO (MÁXIMA COMPRESIÓN + ∏∑ SIN ESPACIO)
+  # 🔐 SISTEMA DE CIFRADO SIN CLAVES (MÁXIMA SEGURIDAD + ∏∑ SIN ESPACIO)
   # ==============================================================================
-  st.subheader("⚙️ Controles de Operación y Cifrado")
-
-  with st.sidebar:
-    st.header("🔑 Llave de Encriptación")
-    st.write("Genera una clave secreta válida o introduce la tuya.")
-
-    if st.button("🎲 Generar Clave Secreta"):
-      nueva_clave = Fernet.generate_key().decode()
-      st.session_state["clave_secreta_faccion"] = nueva_clave
-      st.success("¡Clave secreta generada correctamente!")
-
-    clave_input = st.text_input(
-        "Clave Secreta:",
-        value=st.session_state.get("clave_secreta_faccion", ""),
-        type="password",
-        help="Clave simétrica de Fernet válida.",
-    )
-
-    if clave_input:
-      st.session_state["clave_secreta_faccion"] = clave_input.strip()
-
-    st.markdown(
-        """
-        <div class="key-warning">
-            ⚠️ <b>ADVERTENCIA:</b> No se puede revelar la clave secreta bajo ninguna circunstancia. Si la compartes, comprometerás la seguridad de la facción.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+  st.subheader(
+      "⚙️ Controles de Transmisión Segura (Sin Claves / Seguro Matemático)"
+  )
 
   tab_cifrar, tab_descifrar = st.tabs(
       ["🔒 Cifrar Mensaje", "🔓 Descifrar Mensaje"]
@@ -575,31 +625,18 @@ else:
     if st.button("Cifrar Transmisión"):
       if not msg_claro.strip():
         st.warning("Por favor, introduce un mensaje.")
-      elif not st.session_state.get("clave_secreta_faccion"):
-        st.error(
-            "Falta definir la Clave Secreta en la barra lateral (genéralela o"
-            " introdúzcala)."
-        )
       else:
         try:
-          f = Fernet(
-              st.session_state["clave_secreta_faccion"].encode().strip()
+          codigo_seguro = cifrar_sin_claves(msg_claro)
+          token_final = f"{codigo_seguro}∏∑"
+
+          st.success(
+              "¡Transmisión cifrada de forma segura sin uso de claves!"
           )
-          token_cifrado_bytes = f.encrypt(msg_claro.encode())
-
-          # Aplicar compresión máxima y formato ultracorto
-          codigo_corto = cifrar_ultracorto(token_cifrado_bytes)
-          # Los símbolos al final sin ningún espacio entre ellos: ∏∑
-          token_final = f"{codigo_corto}∏∑"
-
-          st.success("¡Transmisión cifrada correctamente!")
           st.write("Copia el siguiente código ultracorto:")
           st.code(token_final, language="text")
         except Exception as e:
-          st.error(
-              f"Error al cifrar: La clave introducida no es válida para"
-              f" Fernet. ({e})"
-          )
+          st.error(f"Error al cifrar: {e}")
 
   with tab_descifrar:
     msg_cifrado = st.text_area("Introduce el código cifrado recibido:")
@@ -607,11 +644,6 @@ else:
     if st.button("Descifrar Transmisión"):
       if not msg_cifrado.strip():
         st.warning("Por favor, introduce el texto cifrado.")
-      elif not st.session_state.get("clave_secreta_faccion"):
-        st.error(
-            "Falta definir la Clave Secreta en la barra lateral para poder leer"
-            " el mensaje."
-        )
       else:
         try:
           texto_trabajo = msg_cifrado.strip()
@@ -626,19 +658,12 @@ else:
             )
             st.stop()
 
-          # Descomprimir y recuperar los bytes del token original
-          token_bytes = descifrar_ultracorto(texto_trabajo)
-
-          f = Fernet(
-              st.session_state["clave_secreta_faccion"].encode().strip()
-          )
-          mensaje_descifrado = f.decrypt(token_bytes).decode()
-          st.success("¡Mensaje descifrado con éxito!")
+          mensaje_descifrado = descifrar_sin_claves(texto_trabajo)
+          st.success("¡Mensaje descifrado con éxito sin claves!")
           st.markdown(f"**Mensaje original:** `{mensaje_descifrado}`")
         except Exception:
           st.error(
-              "Error crítico: La clave secreta es incorrecta, el mensaje fue"
-              " alterado o el formato no es válido."
+              "Error crítico: El código cifrado fue alterado o no es válido."
           )
 
   st.divider()
