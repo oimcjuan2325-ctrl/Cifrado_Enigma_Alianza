@@ -149,6 +149,34 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
   enviar_email(gmail_destino, asunto, cuerpo)
 
 
+# --- FUNCIONES DE CONVERSIÓN A LETRAS (CÓDIGO CORTO) ---
+ALFABETO = "abcdefghijklmnopqrstuvwxyz"
+
+
+def token_a_letras(token_bytes):
+  numero = int.from_bytes(token_bytes, "big")
+  if numero == 0:
+    return "a"
+  letras = []
+  while numero > 0:
+    numero, resto = divmod(numero, 26)
+    letras.append(ALFABETO[resto])
+  return "".join(letras)
+
+
+def letras_a_token(texto_letras):
+  numero = 0
+  for char in reversed(texto_letras.lower()):
+    if char in ALFABETO:
+      numero = numero * 26 + ALFABETO.index(char)
+    else:
+      raise ValueError("Caracter no alfabético detectado")
+  longitud_bytes = (numero.bit_length() + 7) // 8
+  if longitud_bytes == 0:
+    longitud_bytes = 1
+  return numero.to_bytes(longitud_bytes, "big")
+
+
 # --- ESTILOS CSS ---
 st.markdown(
     """
@@ -515,7 +543,7 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO UTILIZABLE Y OPCIÓN DE SIMPLIFICACIÓN CORRECTA
+  # 🔐 SISTEMA DE CIFRADO AUTOMÁTICO (SOLO LETRAS, ULTRA CORTO Y MARCA "∏ ∑ ")
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
@@ -538,7 +566,6 @@ else:
     if clave_input:
       st.session_state["clave_secreta_faccion"] = clave_input.strip()
 
-    # ADVERTENCIA ESTRICTA DE SEGURIDAD
     st.markdown(
         """
         <div class="key-warning">
@@ -567,36 +594,23 @@ else:
           f = Fernet(
               st.session_state["clave_secreta_faccion"].encode().strip()
           )
-          token_cifrado = f.encrypt(msg_claro.encode()).decode()
-          st.session_state["ultimo_token_generado"] = token_cifrado
+          token_cifrado_bytes = f.encrypt(msg_claro.encode())
+
+          # Traduce automáticamente a puras letras minúsculas compactas con la marca exacta al final
+          codigo_letras = token_a_letras(token_cifrado_bytes)
+          token_final = codigo_letras + "∏ ∑ "
+
           st.success("¡Transmisión cifrada correctamente!")
+          st.write("Copia el siguiente código final:")
+          st.code(token_final, language="text")
         except Exception as e:
           st.error(
               f"Error al cifrar: La clave introducida no es válida para"
               f" Fernet. ({e})"
           )
 
-    if "ultimo_token_generado" in st.session_state:
-      st.write("---")
-      st.write("### ¿Quieres simplificar el mensaje?")
-      opcion_simplificar = st.radio(
-          "Selecciona una opción:", ("No", "Sí"), key="radio_simplificar"
-      )
-
-      if st.button("Aplicar opción de simplificación"):
-        token_final = st.session_state["ultimo_token_generado"]
-        if opcion_simplificar == "Sí":
-          # Añadimos la marca SIM al final sin alterar el formato base del cifrado para que no rompa errores matemáticos
-          token_final = token_final + "SIM"
-
-        st.write("Copia el siguiente código final:")
-        st.code(token_final, language="text")
-
   with tab_descifrar:
     msg_cifrado = st.text_area("Introduce el código cifrado recibido:")
-    fue_simplificado = st.radio(
-        "¿El mensaje fue simplificado?", ("No", "Sí"), key="radio_fue_sim"
-    )
 
     if st.button("Descifrar Transmisión"):
       if not msg_cifrado.strip():
@@ -610,20 +624,29 @@ else:
         try:
           texto_trabajo = msg_cifrado.strip()
 
-          if fue_simplificado == "Sí":
-            if texto_trabajo.endswith("SIM"):
-              texto_trabajo = texto_trabajo[:-3]
+          marca_sim = "∏ ∑ "
+          if texto_trabajo.endswith(marca_sim):
+            texto_trabajo = texto_trabajo[: -len(marca_sim)]
+          else:
+            st.error(
+                "Error: El mensaje introducido no contiene la marca obligatoria"
+                " '∏ ∑ '."
+            )
+            st.stop()
+
+          # Reconvertimos las letras de vuelta a bytes de cifrado originales
+          token_bytes = letras_a_token(texto_trabajo)
 
           f = Fernet(
               st.session_state["clave_secreta_faccion"].encode().strip()
           )
-          mensaje_descifrado = f.decrypt(texto_trabajo.encode()).decode()
+          mensaje_descifrado = f.decrypt(token_bytes).decode()
           st.success("¡Mensaje descifrado con éxito!")
           st.markdown(f"**Mensaje original:** `{mensaje_descifrado}`")
         except Exception:
           st.error(
-              "Error crítico: La clave secreta es incorrecta, el formato del"
-              " mensaje no coincide o fue alterado."
+              "Error crítico: La clave secreta es incorrecta, el mensaje fue"
+              " alterado o no contiene caracteres alfabéticos válidos."
           )
 
   st.divider()
