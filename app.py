@@ -5,6 +5,7 @@ import json
 import os
 import smtplib
 import time
+import zlib
 from cryptography.fernet import Fernet
 import streamlit as st
 
@@ -149,12 +150,14 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
   enviar_email(gmail_destino, asunto, cuerpo)
 
 
-# --- FUNCIONES DE CONVERSIÓN A LETRAS (CÓDIGO CORTO) ---
+# --- FUNCIONES DE COMPRESIÓN EXTREMA Y CONVERSIÓN A LETRAS (MÁS CORTAS) ---
 ALFABETO = "abcdefghijklmnopqrstuvwxyz"
 
 
 def token_a_letras(token_bytes):
-  numero = int.from_bytes(token_bytes, "big")
+  # Comprimimos primero con zlib para reducir al máximo el tamaño en bytes antes de pasar a letras
+  token_comprimido = zlib.compress(token_bytes, level=9)
+  numero = int.from_bytes(token_comprimido, "big")
   if numero == 0:
     return "a"
   letras = []
@@ -174,7 +177,8 @@ def letras_a_token(texto_letras):
   longitud_bytes = (numero.bit_length() + 7) // 8
   if longitud_bytes == 0:
     longitud_bytes = 1
-  return numero.to_bytes(longitud_bytes, "big")
+  token_comprimido = numero.to_bytes(longitud_bytes, "big")
+  return zlib.decompress(token_comprimido)
 
 
 # --- ESTILOS CSS ---
@@ -543,7 +547,7 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO AUTOMÁTICO (SOLO LETRAS, ULTRA CORTO Y MARCA "∏ ∑ ")
+  # 🔐 SISTEMA DE CIFRADO AUTOMÁTICO EXTREMADAMENTE CORTO (CON MARCA SEPARADA)
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
@@ -596,9 +600,10 @@ else:
           )
           token_cifrado_bytes = f.encrypt(msg_claro.encode())
 
-          # Traduce automáticamente a puras letras minúsculas compactas con la marca exacta al final
+          # Compresión extrema + conversión a letras minúsculas muy cortas
           codigo_letras = token_a_letras(token_cifrado_bytes)
-          token_final = codigo_letras + "∏ ∑ "
+          # Los símbolos "∏" y "∑" separados por un espacio y no juntos
+          token_final = f"{codigo_letras} ∏   ∑ "
 
           st.success("¡Transmisión cifrada correctamente!")
           st.write("Copia el siguiente código final:")
@@ -624,17 +629,17 @@ else:
         try:
           texto_trabajo = msg_cifrado.strip()
 
-          marca_sim = "∏ ∑ "
+          marca_sim = "∏   ∑ "
           if texto_trabajo.endswith(marca_sim):
-            texto_trabajo = texto_trabajo[: -len(marca_sim)]
+            texto_trabajo = texto_trabajo[: -len(marca_sim)].strip()
           else:
             st.error(
-                "Error: El mensaje introducido no contiene la marca obligatoria"
-                " '∏ ∑ '."
+                "Error: El mensaje introducido no contiene la marca separada"
+                " correcta."
             )
             st.stop()
 
-          # Reconvertimos las letras de vuelta a bytes de cifrado originales
+          # Reconvertimos las letras comprimidas de vuelta al token original
           token_bytes = letras_a_token(texto_trabajo)
 
           f = Fernet(
