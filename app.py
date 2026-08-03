@@ -150,30 +150,45 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
   enviar_email(gmail_destino, asunto, cuerpo)
 
 
-# --- FUNCIONES DE COMPRESIÓN EXTREMA Y CONVERSIÓN A LETRAS (MÁS CORTAS) ---
+# --- FUNCIONES DE COMPRESIÓN, BLOQUES DE 5 CARACTERES Y CONVERSIÓN ---
 ALFABETO = "abcdefghijklmnopqrstuvwxyz"
 
 
-def token_a_letras(token_bytes):
-  # Comprimimos primero con zlib para reducir al máximo el tamaño en bytes antes de pasar a letras
+def token_a_letras_bloques(token_bytes):
+  # Compresión extrema para asegurar tamaño reducido
   token_comprimido = zlib.compress(token_bytes, level=9)
   numero = int.from_bytes(token_comprimido, "big")
   if numero == 0:
-    return "a"
-  letras = []
-  while numero > 0:
-    numero, resto = divmod(numero, 26)
-    letras.append(ALFABETO[resto])
-  return "".join(letras)
+    letras = "aaaaa"
+  else:
+    letras_lista = []
+    while numero > 0:
+      numero, resto = divmod(numero, 26)
+      letras_lista.append(ALFABETO[resto])
+    letras = "".join(letras_lista)
+
+  # Asegurar que cada "palabra" tenga un mínimo de 5 caracteres rellenando con 'a' si falta
+  palabras = []
+  for i in range(0, len(letras), 5):
+    bloque = letras[i : i + 5]
+    if len(bloque) < 5:
+      bloque = bloque.ljust(5, "a")
+    palabras.append(bloque)
+
+  return " ".join(palabras)
 
 
-def letras_a_token(texto_letras):
+def letras_bloques_a_token(texto_con_bloques):
+  # Quitar espacios y reconstruir la cadena continua de letras
+  texto_letras = texto_con_bloques.replace(" ", "").lower()
+
   numero = 0
-  for char in reversed(texto_letras.lower()):
+  for char in reversed(texto_letras):
     if char in ALFABETO:
       numero = numero * 26 + ALFABETO.index(char)
     else:
       raise ValueError("Caracter no alfabético detectado")
+
   longitud_bytes = (numero.bit_length() + 7) // 8
   if longitud_bytes == 0:
     longitud_bytes = 1
@@ -547,7 +562,7 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO AUTOMÁTICO EXTREMADAMENTE CORTO (CON MARCA SEPARADA)
+  # 🔐 SISTEMA DE CIFRADO AUTOMÁTICO (BLOQUES DE 5+ CARACTERES Y MARCA SIN ESPACIO)
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
@@ -600,10 +615,10 @@ else:
           )
           token_cifrado_bytes = f.encrypt(msg_claro.encode())
 
-          # Compresión extrema + conversión a letras minúsculas muy cortas
-          codigo_letras = token_a_letras(token_cifrado_bytes)
-          # Los símbolos "∏" y "∑" separados por un espacio y no juntos
-          token_final = f"{codigo_letras} ∏   ∑ "
+          # Genera texto en bloques de mínimo 5 caracteres por palabra
+          texto_bloques = token_a_letras_bloques(token_cifrado_bytes)
+          # Añade la marca sin espacios entre los símbolos al final: ∏∑
+          token_final = f"{texto_bloques}∏∑"
 
           st.success("¡Transmisión cifrada correctamente!")
           st.write("Copia el siguiente código final:")
@@ -629,18 +644,18 @@ else:
         try:
           texto_trabajo = msg_cifrado.strip()
 
-          marca_sim = "∏   ∑ "
+          marca_sim = "∏∑"
           if texto_trabajo.endswith(marca_sim):
             texto_trabajo = texto_trabajo[: -len(marca_sim)].strip()
           else:
             st.error(
-                "Error: El mensaje introducido no contiene la marca separada"
-                " correcta."
+                "Error: El mensaje introducido no contiene la marca obligatoria"
+                " '∏∑'."
             )
             st.stop()
 
-          # Reconvertimos las letras comprimidas de vuelta al token original
-          token_bytes = letras_a_token(texto_trabajo)
+          # Reconvertimos las palabras en bloques de letras de vuelta al token original
+          token_bytes = letras_bloques_a_token(texto_trabajo)
 
           f = Fernet(
               st.session_state["clave_secreta_faccion"].encode().strip()
