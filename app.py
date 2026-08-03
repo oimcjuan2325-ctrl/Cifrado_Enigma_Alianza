@@ -515,13 +515,13 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO CON CLAVE ÚTIL Y OPCIÓN DE SIMPLIFICACIÓN
+  # 🔐 SISTEMA DE CIFRADO UTILIZABLE Y OPCIÓN DE SIMPLIFICACIÓN CORRECTA
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
   with st.sidebar:
     st.header("🔑 Llave de Encriptación")
-    st.write("Genera una clave secreta segura o introduce una propia.")
+    st.write("Genera una clave secreta válida o introduce la tuya.")
 
     if st.button("🎲 Generar Clave Secreta"):
       nueva_clave = Fernet.generate_key().decode()
@@ -532,13 +532,13 @@ else:
         "Clave Secreta:",
         value=st.session_state.get("clave_secreta_faccion", ""),
         type="password",
-        help="Introduce la clave de cifrado simétrica.",
+        help="Clave simétrica de Fernet válida.",
     )
 
     if clave_input:
-      st.session_state["clave_secreta_faccion"] = clave_input
+      st.session_state["clave_secreta_faccion"] = clave_input.strip()
 
-    # ADVERTENCIA ESTRICTA DE SEGURIDAD (Obligatoria abajo)
+    # ADVERTENCIA ESTRICTA DE SEGURIDAD
     st.markdown(
         """
         <div class="key-warning">
@@ -564,12 +564,17 @@ else:
         )
       else:
         try:
-          f = Fernet(st.session_state["clave_secreta_faccion"].encode())
+          f = Fernet(
+              st.session_state["clave_secreta_faccion"].encode().strip()
+          )
           token_cifrado = f.encrypt(msg_claro.encode()).decode()
           st.session_state["ultimo_token_generado"] = token_cifrado
           st.success("¡Transmisión cifrada correctamente!")
         except Exception as e:
-          st.error(f"Error al cifrar: {e}")
+          st.error(
+              f"Error al cifrar: La clave introducida no es válida para"
+              f" Fernet. ({e})"
+          )
 
     if "ultimo_token_generado" in st.session_state:
       st.write("---")
@@ -581,15 +586,8 @@ else:
       if st.button("Aplicar opción de simplificación"):
         token_final = st.session_state["ultimo_token_generado"]
         if opcion_simplificar == "Sí":
-          # Simplificación: elimina caracteres repetidos y símbolos largos o reduce longitud manteniendo estructura
-          token_simplificado = "".join(
-              [
-                  c
-                  for i, c in enumerate(token_final)
-                  if i % 2 == 0 or c in ["=", "+", "-"]
-              ]
-          )
-          token_final = token_simplificado + "SIM"
+          # Añadimos la marca SIM al final sin alterar el formato base del cifrado para que no rompa errores matemáticos
+          token_final = token_final + "SIM"
 
         st.write("Copia el siguiente código final:")
         st.code(token_final, language="text")
@@ -615,23 +613,17 @@ else:
           if fue_simplificado == "Sí":
             if texto_trabajo.endswith("SIM"):
               texto_trabajo = texto_trabajo[:-3]
-            # Nota: Si el usuario indica que fue simplificado pero el algoritmo de cifrado estricto de Fernet requiere el string completo,
-            # informamos o intentamos adaptar el formato si es posible. Como Fernet requiere exactitud, explicamos el estado:
-            st.info(
-                "ℹ️ Has indicado que está simplificado. Asegúrate de que el"
-                " emisor utilizó la simplificación correcta para que el token"
-                " sea legible."
-            )
 
-          f = Fernet(st.session_state["clave_secreta_faccion"].encode())
+          f = Fernet(
+              st.session_state["clave_secreta_faccion"].encode().strip()
+          )
           mensaje_descifrado = f.decrypt(texto_trabajo.encode()).decode()
           st.success("¡Mensaje descifrado con éxito!")
           st.markdown(f"**Mensaje original:** `{mensaje_descifrado}`")
         except Exception:
           st.error(
-              "Error crítico: La clave secreta es incorrecta, el mensaje"
-              " simplificado perdió datos necesarios o el token ha sido"
-              " alterado."
+              "Error crítico: La clave secreta es incorrecta, el formato del"
+              " mensaje no coincide o fue alterado."
           )
 
   st.divider()
