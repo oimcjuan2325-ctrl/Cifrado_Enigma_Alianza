@@ -1,5 +1,4 @@
 import streamlit as st
-import numpy as np
 import time
 import json
 import os
@@ -16,7 +15,7 @@ st.set_page_config(page_title="Inicie sesión en esta web", page_icon="🛡️",
 # ==============================================================================
 ADMIN_USER = "Juan"
 ADMIN_PASS = "2325"
-ADMIN_EMAIL = "oimcjuan2325@gmail.com"  # <--- Tu correo real actualizado
+ADMIN_EMAIL = "oimcjuan2325@gmail.com" 
 GMAIL_EMISOR = "oimcjuan2325@gmail.com"  
 PASSWORD_EMISOR = "ouagwqwvjetehcwu"  # Contraseña de aplicación de Google
 
@@ -131,27 +130,6 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
 # --- ESTILOS CSS MATRIX / HACKER ---
 st.markdown("""
 <style>
-    .matrix-box {
-        background-color: #0d0d0d;
-        color: #00ff41;
-        font-family: 'Courier New', Courier, monospace;
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #00ff41;
-        box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
-        text-align: center;
-        margin-top: 10px;
-    }
-    .matrix-text {
-        font-size: 20px;
-        font-weight: bold;
-        letter-spacing: 2px;
-    }
-    .matrix-rain {
-        color: #008011;
-        font-size: 13px;
-        opacity: 0.8;
-    }
     .warning-banner {
         background-color: #3d0000;
         color: #ff4d4d;
@@ -184,107 +162,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-# --- MOTOR DE CIFRADO TRIGONOMÉTRICO Y BINARIO ---
-MAPA = {
-    'A':1, 'B':2, 'C':3, 'D':4, 'E':5, 'F':6, 'G':7, 'H':8, 'I':9,
-    'J':10, 'K':11, 'L':12, 'M':13, 'N':14, 'Ñ':15, 'O':16, 'P':17,
-    'Q':18, 'R':19, 'S':20, 'T':21, 'U':22, 'V':23, 'W':24, 'X':25,
-    'Y':26, 'Z':27
-}
-MAPA_INVERSO = {v: k for k, v in MAPA.items()}
-
-def calcular_desplazador(vi, operacion):
-    angulo_rad = np.radians(vi)
-    if operacion == 'SEN':
-        val = np.sin(angulo_rad)
-    elif operacion == 'COS':
-        val = np.cos(angulo_rad)
-    else:
-        val = np.tan(angulo_rad)
-        
-    desplazamiento = int(np.round(val * 10))
-    if desplazamiento == 0:
-        desplazamiento = 1
-    return desplazamiento
-
-def obtener_operacion(idx_letra):
-    operaciones = ['SEN', 'COS', 'TAN']
-    return operaciones[idx_letra % 3]
-
-def texto_a_binario(texto):
-    return " ".join(format(ord(c), '08b') for c in texto)
-
-def binario_a_texto(cadena_binaria):
-    try:
-        bytes_lista = cadena_binaria.strip().split()
-        return "".join(chr(int(b, 2)) for b in bytes_lista)
-    except:
-        return cadena_binaria
-
-def procesar_trigonometrico_paso_a_paso(mensaje, modo='cifrar'):
-    pasos = []
-    resultado = []
-    idx_letra = 0
-    
-    mensaje_procesar = mensaje
-    if modo == 'descifrar' and all(c in '01 ' for c in mensaje.strip()):
-        mensaje_procesar = binario_a_texto(mensaje)
-
-    for idx_char, char in enumerate(mensaje_procesar.upper()):
-        if char in [' ', 'Á', 'É', 'Í', 'Ó', 'Ú']:
-            remplazos = {'Á':'A', 'É':'E', 'Í':'I', 'Ó':'O', 'Ú':'U'}
-            char = remplazos.get(char, char)
-
-        if char == ' ':
-            resultado.append(' ')
-            continue
-            
-        vi = MAPA.get(char, 0)
-        if vi == 0:
-            resultado.append(char)
-            continue
-            
-        x = idx_letra + 1
-        operacion = obtener_operacion(idx_letra)
-        
-        if modo == 'cifrar':
-            shift = calcular_desplazador(vi, operacion)
-            ci = (vi + shift) % 27
-            if ci == 0: ci = 27
-            char_res = MAPA_INVERSO.get(ci, '?')
-            val_origen = vi
-            val_final = ci
-        else:
-            ci = vi
-            val_origen = ci
-            char_res = '?'
-            shift = 0
-            val_final = 0
-            
-            for cand in range(1, 28):
-                s_cand = calcular_desplazador(cand, operacion)
-                if (cand + s_cand - 1) % 27 + 1 == ci:
-                    val_final = cand
-                    char_res = MAPA_INVERSO.get(cand, '?')
-                    shift = s_cand
-                    break
-
-        resultado.append(char_res)
-        
-        pasos.append({
-            'posicion': x,
-            'original': char,
-            'valor_original': val_origen,
-            'operacion': operacion,
-            'desplazamiento': shift,
-            'resultado_num': val_final if modo == 'descifrar' else ci,
-            'resultado_char': char_res
-        })
-        idx_letra += 1
-        
-    texto_trig_res = "".join(resultado)
-    return texto_trig_res, pasos
 
 # --- ESTADOS DE SESIÓN ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
@@ -449,7 +326,7 @@ else:
     </div>
     """, unsafe_allow_html=True)
     
-    st.title("📟 Terminal de Cifrado y Transmisión")
+    st.title("📟 Terminal de Transmisión")
     st.caption(f"Sesión iniciada como: `{st.session_state.usuario_actual}`")
     
     es_lider = (st.session_state.usuario_actual == ADMIN_USER)
@@ -536,115 +413,18 @@ else:
 
     st.divider()
 
-    # --- SECCIÓN DE SELECCIÓN DE MÉTODOS DE CIFRADO ---
-    st.subheader("🎛️ Selección de Apartados de Cifrado / Descifrado")
-    lista_secciones = [
-        "1. Cifrado Trigonométrico y Binario",
-        "22. Máquina Enigma (Simulador de rotores militares)"
-    ]
-    seccion_elegida = st.selectbox("Elige la sección en la que deseas operar:", lista_secciones)
-    st.divider()
+    st.subheader("⚙️ Controles de Operación")
+    msg = st.text_input("Mensaje:")
+    btn_ejecutar = st.button("Procesar y Transmitir")
 
-    if "22. Máquina Enigma" in seccion_elegida:
-        st.subheader("🔓 Sección Específica: Máquina Enigma")
-        
-        # Mensaje limpio con enlace directo integrado
-        st.markdown(
-            """
-            <div style="padding: 20px; border-radius: 8px; background-color: #0e2a38; border: 2px solid #00aaff; text-align: center; margin-top: 20px;">
-                <p style="font-size: 18px; color: #a3e5ff; margin-bottom: 15px;">
-                    Por favor, entre a este link para mayor precisión en el descifrado de la máquina enigma.
-                </p>
-                <a href="https://descifradormasivomaquinaenigma-p2c9xef9h5c88k9nczj78p.streamlit.app/" target="_blank" style="font-size: 20px; font-weight: bold; color: #00ff41; text-decoration: underline;">
-                    🔗 Acceder al Descifrador Masivo de Máquina Enigma
-                </a>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-
-    else:
-        col_izquierda, col_derecha = st.columns([1, 1], gap="large")
-        
-        with col_izquierda:
-            st.subheader("⚙️ Controles de Operación")
-            op = st.radio("Acción a realizar:", ["Cifrar", "Descifrar"])
-            msg = st.text_input("Mensaje (Texto o Cadenas Binarias):")
-            btn_ejecutar = st.button("Procesar y Transmitir")
-
-        with col_derecha:
-            st.subheader("🎬 Estado de la Transmisión")
-            pantalla_simulacion = st.empty()
-            pantalla_simulacion.info("Introduce un mensaje para iniciar el cifrado/descifrado en vivo.")
-
-        if 'btn_ejecutar' in locals() and btn_ejecutar:
-            if not msg.strip():
-                st.warning("Por favor, introduce un texto válido.")
-            else:
-                modo = 'cifrar' if op == "Cifrar" else 'descifrar'
-                res_trig, pasos = procesar_trigonometrico_paso_a_paso(msg, modo)
-                
-                num_pasos = len(pasos) + 1
-                tiempo_espera = max(1.2, 12.0 / num_pasos)
-                
-                progreso_bar = col_derecha.progress(0)
-                
-                for i, paso in enumerate(pasos):
-                    progreso_bar.progress((i + 1) / num_pasos)
-                    
-                    with pantalla_simulacion.container():
-                        st.markdown(f"### Paso {i+1} de {num_pasos} — Procesando: **'{paso['original']}'**")
-                        
-                        if modo == 'cifrar':
-                            st.metric("Letra origen", f"{paso['original']} (Posición: {paso['valor_original']})")
-                            st.write(f"**Cálculo:** `{paso['operacion']}({paso['valor_original']}°)` | **Desplazamiento:** `+{paso['desplazamiento']}`")
-                            st.latex(
-                                rf"({paso['valor_original']} + \text{{{paso['operacion']}}}({paso['valor_original']}^\circ)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
-                            )
-                        else:
-                            st.metric("Letra recibida", f"{paso['original']} (Posición: {paso['valor_original']})")
-                            st.write(f"**Búsqueda inversa con:** `{paso['operacion']}` | **Desplazamiento:** `-{paso['desplazamiento']}`")
-                            st.latex(
-                                rf"({paso['valor_original']} - \text{{{paso['operacion']}}}(\text{{origen}}^\circ)) \pmod{{27}} = {paso['resultado_num']} \rightarrow \mathbf{{{paso['resultado_char']}}}"
-                            )
-                    
-                    time.sleep(tiempo_espera)
-                    
-                progreso_bar.progress(1.0)
-                
-                if modo == 'cifrar':
-                    res_binario = texto_a_binario(res_trig)
-                    res_final_output = res_binario
-                    
-                    with pantalla_simulacion.container():
-                        st.markdown(f"### Paso {num_pasos} de {num_pasos} — ⚡ Conversión de Datos a Pulsos Binarios")
-                        st.markdown(f"""
-                        <div class="matrix-box">
-                            <div class="matrix-rain">01100101 01110011 01110100 01101111 00100000 01100101 01110011</div>
-                            <br>
-                            <div>CAPA TRIGONOMÉTRICA: <span style="color:#ffffff;">{res_trig}</span></div>
-                            <br>
-                            <div class="matrix-text">⚡ PAQUETE BINARIO SEGURO ⚡</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.code(res_binario, language="text")
-                else:
-                    res_final_output = res_trig
-                    with pantalla_simulacion.container():
-                        st.markdown(f"### Paso {num_pasos} de {num_pasos} — 🔓 Mensaje Decodificado")
-                        st.markdown(f"""
-                        <div class="matrix-box">
-                            <div class="matrix-text">MENSAJE ORIGINAL RECUPERADO</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.code(res_trig, language="text")
-                
-                time.sleep(2.0)
-                col_derecha.success("¡Operación completada con éxito!")
-                
-                st.divider()
-                st.subheader("📌 Salida del Mensaje")
-                st.text_area("Resultado:", value=res_final_output, help="Copia este texto para transmitirlo")
+    if 'btn_ejecutar' in locals() and btn_ejecutar:
+        if not msg.strip():
+            st.warning("Por favor, introduce un texto válido.")
+        else:
+            st.success("¡Operación completada con éxito!")
+            st.divider()
+            st.subheader("📌 Salida del Mensaje")
+            st.text_area("Resultado:", value=msg, help="Copia este texto para transmitirlo")
 
     st.divider()
     if st.button("Cerrar Sesión"):
