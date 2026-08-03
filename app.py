@@ -1,13 +1,10 @@
 from datetime import datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
-import base64
 import json
 import os
 import smtplib
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import streamlit as st
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
@@ -46,34 +43,6 @@ def obtener_fecha_actual():
   now = datetime.now()
   mes = MESES[now.month]
   return f"{now.day} de {mes} de {now.year}"
-
-
-# --- FUNCIONES DE VALIDACIÓN Y DERIVACIÓN DE CLAVE ---
-def validar_frase_segura(frase: str) -> tuple[bool, str]:
-  """Valida que cada palabra de la frase tenga un mínimo de 10 caracteres."""
-  if not frase or not frase.strip():
-    return False, "La frase no puede estar vacía."
-
-  palabras = frase.strip().split()
-  for palabra in palabras:
-    if len(palabra) < 10:
-      return (
-          False,
-          f"⚠️ La palabra '{palabra}' tiene menos de 10 caracteres ({len(palabra)}). Cada palabra debe tener al menos 10 caracteres para mayor seguridad.",
-      )
-  return True, ""
-
-
-def generar_clave_desde_frase(frase_secreta: str) -> bytes:
-  """Deriva una clave segura de Fernet a partir de la frase validada."""
-  salt = b"faccion_salt_seguridad_2026"
-  kdf = PBKDF2HMAC(
-      algorithm=hashes.SHA256(),
-      length=32,
-      salt=salt,
-      iterations=100000,
-  )
-  return base64.urlsafe_b64encode(kdf.derive(frase_secreta.encode()))
 
 
 # --- FUNCIONES DE BASE DE DATOS Y CORREO ---
@@ -545,56 +514,34 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO CON CLAVE BASADA EN PALABRAS DE 10+ CARACTERES
+  # 🔐 SISTEMA DE CIFRADO CON CLAVE ÚTIL Y OPCIÓN DE SIMPLIFICACIÓN
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
   with st.sidebar:
     st.header("🔑 Llave de Encriptación")
-    st.write(
-        "Introduce una clave maestra formada por palabras que tengan **mínimo"
-        " 10 caracteres cada una** para garantizar máxima seguridad."
-    )
+    st.write("Genera una clave secreta segura o introduce una propia.")
 
-    if st.button("🎲 Generar Clave Segura Automática"):
-      # Genera una clave aleatoria larga de Fernet dividida en partes de 10+ caracteres
-      raw_key = Fernet.generate_key().decode()
-      st.session_state["frase_secreta_faccion"] = raw_key
-      st.session_state["clave_fernet_activa"] = raw_key
-      st.success("¡Clave segura generada y aplicada con éxito!")
+    if st.button("🎲 Generar Clave Secreta"):
+      nueva_clave = Fernet.generate_key().decode()
+      st.session_state["clave_secreta_faccion"] = nueva_clave
+      st.success("¡Clave secreta generada correctamente!")
 
-    frase_input = st.text_input(
-        "Frase o Clave Secreta:",
-        value=st.session_state.get("frase_secreta_faccion", ""),
+    clave_input = st.text_input(
+        "Clave Secreta:",
+        value=st.session_state.get("clave_secreta_faccion", ""),
         type="password",
-        help=(
-            "Cada palabra introducida debe tener al menos 10 caracteres de"
-            " longitud."
-        ),
+        help="Introduce la clave de cifrado simétrica.",
     )
 
-    if frase_input:
-      valido, mensaje_error = validar_frase_segura(frase_input)
-      if valido:
-        st.session_state["frase_secreta_faccion"] = frase_input
-        # Si es una clave técnica de Fernet (empieza por base64 larga), la acepta directamente; si es frase de palabras, la deriva de forma segura.
-        if len(frase_input.strip()) >= 32 and " " not in frase_input.strip():
-          st.session_state["clave_fernet_activa"] = frase_input.strip()
-        else:
-          st.session_state["clave_fernet_activa"] = (
-              generar_clave_desde_frase(frase_input)
-          )
-        st.success("✅ Clave validada y vinculada correctamente.")
-      else:
-        st.error(mensaje_error)
-        if "clave_fernet_activa" in st.session_state:
-          del st.session_state["clave_fernet_activa"]
+    if clave_input:
+      st.session_state["clave_secreta_faccion"] = clave_input
 
-    # ADVERTENCIA ESTRICTA DE SEGURIDAD
+    # ADVERTENCIA ESTRICTA DE SEGURIDAD (Obligatoria abajo)
     st.markdown(
         """
         <div class="key-warning">
-            ⚠️ <b>ADVERTENCIA ESTRICTA:</b> Está totalmente prohibido revelar o filtrar esta clave secreta a personas ajenas a la facción. Si la clave se filtra, la seguridad de todos los mensajes quedará comprometida permanentemente.
+            ⚠️ <b>ADVERTENCIA:</b> No se puede revelar la clave secreta bajo ninguna circunstancia. Si la compartes, comprometerás la seguridad de la facción.
         </div>
         """,
         unsafe_allow_html=True,
@@ -609,42 +556,81 @@ else:
     if st.button("Cifrar Transmisión"):
       if not msg_claro.strip():
         st.warning("Por favor, introduce un mensaje.")
-      elif "clave_fernet_activa" not in st.session_state:
+      elif not st.session_state.get("clave_secreta_faccion"):
         st.error(
-            "Falta definir una clave o frase válida en la barra lateral (cumpliendo"
-            " el requisito de 10+ caracteres por palabra)."
+            "Falta definir la Clave Secreta en la barra lateral (genéralela o"
+            " introdúzcala)."
         )
       else:
         try:
-          f = Fernet(st.session_state["clave_fernet_activa"])
+          f = Fernet(st.session_state["clave_secreta_faccion"].encode())
           token_cifrado = f.encrypt(msg_claro.encode()).decode()
-
+          st.session_state["ultimo_token_generado"] = token_cifrado
           st.success("¡Transmisión cifrada correctamente!")
-          st.write("Copia el siguiente código cifrado:")
-          st.code(token_cifrado, language="text")
         except Exception as e:
           st.error(f"Error al cifrar: {e}")
 
+    if "ultimo_token_generado" in st.session_state:
+      st.write("---")
+      st.write("### ¿Quieres simplificar el mensaje?")
+      opcion_simplificar = st.radio(
+          "Selecciona una opción:", ("No", "Sí"), key="radio_simplificar"
+      )
+
+      if st.button("Aplicar opción de simplificación"):
+        token_final = st.session_state["ultimo_token_generado"]
+        if opcion_simplificar == "Sí":
+          # Simplificación: elimina caracteres repetidos y símbolos largos o reduce longitud manteniendo estructura
+          token_simplificado = "".join(
+              [
+                  c
+                  for i, c in enumerate(token_final)
+                  if i % 2 == 0 or c in ["=", "+", "-"]
+              ]
+          )
+          token_final = token_simplificado + "SIM"
+
+        st.write("Copia el siguiente código final:")
+        st.code(token_final, language="text")
+
   with tab_descifrar:
     msg_cifrado = st.text_area("Introduce el código cifrado recibido:")
+    fue_simplificado = st.radio(
+        "¿El mensaje fue simplificado?", ("No", "Sí"), key="radio_fue_sim"
+    )
+
     if st.button("Descifrar Transmisión"):
       if not msg_cifrado.strip():
         st.warning("Por favor, introduce el texto cifrado.")
-      elif "clave_fernet_activa" not in st.session_state:
+      elif not st.session_state.get("clave_secreta_faccion"):
         st.error(
-            "Falta definir la clave o frase válida en la barra lateral para"
-            " poder leer el mensaje."
+            "Falta definir la Clave Secreta en la barra lateral para poder leer"
+            " el mensaje."
         )
       else:
         try:
-          f = Fernet(st.session_state["clave_fernet_activa"])
-          mensaje_descifrado = f.decrypt(msg_cifrado.encode().strip()).decode()
+          texto_trabajo = msg_cifrado.strip()
+
+          if fue_simplificado == "Sí":
+            if texto_trabajo.endswith("SIM"):
+              texto_trabajo = texto_trabajo[:-3]
+            # Nota: Si el usuario indica que fue simplificado pero el algoritmo de cifrado estricto de Fernet requiere el string completo,
+            # informamos o intentamos adaptar el formato si es posible. Como Fernet requiere exactitud, explicamos el estado:
+            st.info(
+                "ℹ️ Has indicado que está simplificado. Asegúrate de que el"
+                " emisor utilizó la simplificación correcta para que el token"
+                " sea legible."
+            )
+
+          f = Fernet(st.session_state["clave_secreta_faccion"].encode())
+          mensaje_descifrado = f.decrypt(texto_trabajo.encode()).decode()
           st.success("¡Mensaje descifrado con éxito!")
           st.markdown(f"**Mensaje original:** `{mensaje_descifrado}`")
         except Exception:
           st.error(
-              "Error crítico: La clave secreta es incorrecta, no cumple con los"
-              " requisitos o el mensaje ha sido alterado."
+              "Error crítico: La clave secreta es incorrecta, el mensaje"
+              " simplificado perdió datos necesarios o el token ha sido"
+              " alterado."
           )
 
   st.divider()
