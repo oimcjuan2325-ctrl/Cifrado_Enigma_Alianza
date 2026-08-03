@@ -1,4 +1,4 @@
-
+import base64
 from datetime import datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
