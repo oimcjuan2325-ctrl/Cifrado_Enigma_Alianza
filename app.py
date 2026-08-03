@@ -1,12 +1,12 @@
+import base64
 from datetime import datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
-base64
-json
-os
-smtplib
-time
-zlib
+import json
+import os
+import smtplib
+import time
+import zlib
 from cryptography.fernet import Fernet
 import streamlit as st
 
@@ -148,14 +148,12 @@ Ya puede acceder a la web e iniciar sesión."""
     cuerpo = f"""Lo sentimos mucho, pero su cuenta ({usuario}) no ha sido autorizada por el Administrador. 
 
 Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
-  enviar_email(gmail_destino, usuario, password, estado)
+  enviar_email(gmail_destino, asunto, cuerpo)
 
 
 # --- FUNCIONES DE ULTRA-COMPRESIÓN Y BASE64 COMPACTO ---
 def cifrar_ultracorto(token_bytes):
-  # Comprimimos los bytes al máximo nivel para reducir drásticamente el tamaño
   comprimido = zlib.compress(token_bytes, level=9)
-  # Codificamos en Base64 URL-safe eliminando caracteres de relleno (=) para que sea súper corto
   encoded = (
       base64.urlsafe_b64encode(comprimido).rstrip(b"=").decode("utf-8")
   )
@@ -163,7 +161,6 @@ def cifrar_ultracorto(token_bytes):
 
 
 def descifrar_ultracorto(texto_cortito):
-  # Restaurar el relleno estándar de Base64 si es necesario
   padding = 4 - (len(texto_cortito) % 4)
   if padding < 4:
     texto_cortito += "=" * padding
