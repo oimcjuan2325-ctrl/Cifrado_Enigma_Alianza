@@ -45,7 +45,7 @@ def obtener_fecha_actual():
   return f"{now.day} de {mes} de {now.year}"
 
 
-# --- FUNCIONES DE BASE DE DATOS Y CORREO (PERSISTENCIA LOCAL STORAGE / JSON) ---
+# --- FUNCIONES DE BASE DE DATOS Y CORREO ---
 def cargar_usuarios():
   if "db_usuarios_memoria" in st.session_state:
     return st.session_state.db_usuarios_memoria
@@ -148,7 +148,7 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
   enviar_email(gmail_destino, asunto, cuerpo)
 
 
-# --- ESTILOS CSS MATRIX / HACKER ---
+# --- ESTILOS CSS ---
 st.markdown(
     """
 <style>
@@ -507,7 +507,6 @@ else:
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
-  # Barra lateral específica para el cifrado o controles internos
   with st.sidebar:
     st.header("🔑 Gestión de Cifrado")
     st.write(
@@ -520,7 +519,6 @@ else:
       st.session_state["clave_secreta_faccion"] = nueva_clave
       st.success("¡Clave generada con éxito!")
 
-    # Campo de clave persistente en sesión
     clave_actual = st.text_input(
         "Clave Secreta (Fernet Key):",
         value=st.session_state.get("clave_secreta_faccion", ""),
@@ -533,7 +531,6 @@ else:
     if clave_actual:
       st.session_state["clave_secreta_faccion"] = clave_actual
 
-  # Pestañas dentro de la terminal para Cifrar / Descifrar
   tab_cifrar, tab_descifrar = st.tabs(
       ["🔒 Cifrar Mensaje", "🔓 Descifrar Mensaje"]
   )
