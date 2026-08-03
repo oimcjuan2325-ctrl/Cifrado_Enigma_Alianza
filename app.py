@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
-import json
-import os
-import smtplib
-import time
-import zlib
+base64
+json
+os
+smtplib
+time
+zlib
 from cryptography.fernet import Fernet
 import streamlit as st
 
@@ -147,53 +148,27 @@ Ya puede acceder a la web e iniciar sesión."""
     cuerpo = f"""Lo sentimos mucho, pero su cuenta ({usuario}) no ha sido autorizada por el Administrador. 
 
 Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
-  enviar_email(gmail_destino, asunto, cuerpo)
+  enviar_email(gmail_destino, usuario, password, estado)
 
 
-# --- FUNCIONES DE COMPRESIÓN, BLOQUES DE 5 CARACTERES Y CONVERSIÓN ---
-ALFABETO = "abcdefghijklmnopqrstuvwxyz"
+# --- FUNCIONES DE ULTRA-COMPRESIÓN Y BASE64 COMPACTO ---
+def cifrar_ultracorto(token_bytes):
+  # Comprimimos los bytes al máximo nivel para reducir drásticamente el tamaño
+  comprimido = zlib.compress(token_bytes, level=9)
+  # Codificamos en Base64 URL-safe eliminando caracteres de relleno (=) para que sea súper corto
+  encoded = (
+      base64.urlsafe_b64encode(comprimido).rstrip(b"=").decode("utf-8")
+  )
+  return encoded
 
 
-def token_a_letras_bloques(token_bytes):
-  # Compresión extrema para asegurar tamaño reducido
-  token_comprimido = zlib.compress(token_bytes, level=9)
-  numero = int.from_bytes(token_comprimido, "big")
-  if numero == 0:
-    letras = "aaaaa"
-  else:
-    letras_lista = []
-    while numero > 0:
-      numero, resto = divmod(numero, 26)
-      letras_lista.append(ALFABETO[resto])
-    letras = "".join(letras_lista)
-
-  # Asegurar que cada "palabra" tenga un mínimo de 5 caracteres rellenando con 'a' si falta
-  palabras = []
-  for i in range(0, len(letras), 5):
-    bloque = letras[i : i + 5]
-    if len(bloque) < 5:
-      bloque = bloque.ljust(5, "a")
-    palabras.append(bloque)
-
-  return " ".join(palabras)
-
-
-def letras_bloques_a_token(texto_con_bloques):
-  # Quitar espacios y reconstruir la cadena continua de letras
-  texto_letras = texto_con_bloques.replace(" ", "").lower()
-
-  numero = 0
-  for char in reversed(texto_letras):
-    if char in ALFABETO:
-      numero = numero * 26 + ALFABETO.index(char)
-    else:
-      raise ValueError("Caracter no alfabético detectado")
-
-  longitud_bytes = (numero.bit_length() + 7) // 8
-  if longitud_bytes == 0:
-    longitud_bytes = 1
-  token_comprimido = numero.to_bytes(longitud_bytes, "big")
-  return zlib.decompress(token_comprimido)
+def descifrar_ultracorto(texto_cortito):
+  # Restaurar el relleno estándar de Base64 si es necesario
+  padding = 4 - (len(texto_cortito) % 4)
+  if padding < 4:
+    texto_cortito += "=" * padding
+  comprimido = base64.urlsafe_b64decode(texto_cortito.encode("utf-8"))
+  return zlib.decompress(comprimido)
 
 
 # --- ESTILOS CSS ---
@@ -562,7 +537,7 @@ else:
   st.divider()
 
   # ==============================================================================
-  # 🔐 SISTEMA DE CIFRADO AUTOMÁTICO (BLOQUES DE 5+ CARACTERES Y MARCA SIN ESPACIO)
+  # 🔐 SISTEMA DE CIFRADO ULTRA-COMPACTO (MÁXIMA COMPRESIÓN + ∏∑ SIN ESPACIO)
   # ==============================================================================
   st.subheader("⚙️ Controles de Operación y Cifrado")
 
@@ -615,13 +590,13 @@ else:
           )
           token_cifrado_bytes = f.encrypt(msg_claro.encode())
 
-          # Genera texto en bloques de mínimo 5 caracteres por palabra
-          texto_bloques = token_a_letras_bloques(token_cifrado_bytes)
-          # Añade la marca sin espacios entre los símbolos al final: ∏∑
-          token_final = f"{texto_bloques}∏∑"
+          # Aplicar compresión máxima y formato ultracorto
+          codigo_corto = cifrar_ultracorto(token_cifrado_bytes)
+          # Los símbolos al final sin ningún espacio entre ellos: ∏∑
+          token_final = f"{codigo_corto}∏∑"
 
           st.success("¡Transmisión cifrada correctamente!")
-          st.write("Copia el siguiente código final:")
+          st.write("Copia el siguiente código ultracorto:")
           st.code(token_final, language="text")
         except Exception as e:
           st.error(
@@ -654,8 +629,8 @@ else:
             )
             st.stop()
 
-          # Reconvertimos las palabras en bloques de letras de vuelta al token original
-          token_bytes = letras_bloques_a_token(texto_trabajo)
+          # Descomprimir y recuperar los bytes del token original
+          token_bytes = descifrar_ultracorto(texto_trabajo)
 
           f = Fernet(
               st.session_state["clave_secreta_faccion"].encode().strip()
@@ -666,7 +641,7 @@ else:
         except Exception:
           st.error(
               "Error crítico: La clave secreta es incorrecta, el mensaje fue"
-              " alterado o no contiene caracteres alfabéticos válidos."
+              " alterado o el formato no es válido."
           )
 
   st.divider()
