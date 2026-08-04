@@ -1,0 +1,16 @@
+{
+    "Juan": {
+        "gmail": "oimcjuan2325@gmail.com",
+        "password": "2325",
+        "estado": "AUTORIZADO",
+        "fecha_autorizacion": "22 de julio de 2026",
+        "bloqueo_hasta": null
+    },
+    "Yoli": {
+        "gmail": "yolandadelhoyo@gmail.com",
+        "password": "1460",
+        "estado": "PENDIENTE",
+        "fecha_autorizacion": "",
+        "bloqueo_hasta": null
+    }
+}
