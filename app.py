@@ -233,35 +233,28 @@ Por favor, inténtelo de nuevo más tarde o contacte con el Administrador."""
     enviar_email(gmail_destino, asunto, cuerpo)
 
 
-# --- SISTEMA DE CIFRADO AES-256-GCM ---
-def obtener_o_crear_clave_aes():
-    # Clave de 32 bytes (256 bits) almacenada en Streamlit Secrets o generada de forma fija por defecto si no existe
-    if "AES_SECRET_KEY" in st.secrets:
-        clave_str = st.secrets["AES_SECRET_KEY"]
-        # Asegurarse de que tenga 32 bytes exactos (rellenando o recortando)
-        clave_bytes = clave_str.encode("utf-8")
-        if len(clave_bytes) < 32:
-            clave_bytes = clave_bytes.ljust(32, b"0")
-        elif len(clave_bytes) > 32:
-            clave_bytes = clave_bytes[:32]
-        return clave_bytes
-    else:
-        # Clave por defecto robusta por si no se especifica en secrets
-        return b"FaccionPamplonaSecretaKey2026AES!"
+# --- GESTIÓN DE CLAVES AES-256-GCM ---
+def obtener_clave_bytes(clave_texto):
+    clave_bytes = clave_texto.encode("utf-8")
+    if len(clave_bytes) < 32:
+        clave_bytes = clave_bytes.ljust(32, b"0")
+    elif len(clave_bytes) > 32:
+        clave_bytes = clave_bytes[:32]
+    return clave_bytes
 
 
-def cifrar_aes_gcm(texto):
-    clave = obtener_o_crear_clave_aes()
+def cifrar_aes_gcm(texto, clave_texto):
+    clave = obtener_clave_bytes(clave_texto)
     aesgcm = AESGCM(clave)
-    nonce = os.urandom(12)  # Nonce estándar de 96 bits para GCM
+    nonce = os.urandom(12)  # Nonce de 96 bits
     datos_cifrados = aesgcm.encrypt(nonce, texto.encode("utf-8"), None)
-    # Empaquetar nonce + datos cifrados y codificar en Base64 URL Safe
+    # Empaquetar clave utilizándola o guardando nonce + cifrado
     paquete = nonce + datos_cifrados
     return base64.urlsafe_b64encode(paquete).decode("utf-8")
 
 
-def descifrar_aes_gcm(texto_cifrado):
-    clave = obtener_o_crear_clave_aes()
+def descifrar_aes_gcm(texto_cifrado, clave_texto):
+    clave = obtener_clave_bytes(clave_texto)
     aesgcm = AESGCM(clave)
     paquete = base64.urlsafe_b64decode(texto_cifrado.encode("utf-8"))
     nonce = paquete[:12]
@@ -316,6 +309,8 @@ if "usuario_actual" not in st.session_state:
     st.session_state.usuario_actual = ""
 if "modo_pantalla" not in st.session_state:
     st.session_state.modo_pantalla = "login"
+if "clave_secreta_actual" not in st.session_state:
+    st.session_state.clave_secreta_actual = "FaccionPamplonaSecretaKey2026AES!"
 
 db_usuarios = cargar_usuarios()
 
@@ -507,6 +502,29 @@ if not st.session_state.autenticado:
 
 # --- PANTALLA PRINCIPAL DE LA APLICACIÓN ---
 else:
+    # --- PANEL LATERAL DE GESTIÓN DE CLAVES ---
+    with st.sidebar:
+        st.header("🔑 Gestión de Claves AES")
+        with st.expander("⚙️ Configurar Clave Secreta", expanded=True):
+            if st.button("🎲 Generar Clave Automática"):
+                # Generar clave aleatoria segura codificada en base64 de 32 bytes
+                nueva_key_aleatoria = base64.urlsafe_b64encode(os.urandom(32)).decode("utf-8")
+                st.session_state.clave_secreta_actual = nueva_key_aleatoria
+                st.success("¡Clave automática generada con éxito!")
+                st.rerun()
+
+            # Campo de texto para ver o cambiar la clave manualmente
+            clave_ingresada = st.text_input(
+                "Clave Secreta Activa:",
+                value=st.session_state.clave_secreta_actual,
+                type="password",
+                key="input_clave_sidebar"
+            )
+            if clave_ingresada != st.session_state.clave_secreta_actual:
+                st.session_state.clave_secreta_actual = clave_ingresada
+
+            st.caption("ℹ️ Comparte esta misma clave con los receptores de tus mensajes para que puedan descifrarlos.")
+
     st.markdown(
         """
     <div class="warning-banner">
@@ -625,7 +643,7 @@ else:
     st.divider()
 
     # ==============================================================================
-    # 🔐 SISTEMA DE CIFRADO AES-256-GCM (NIVEL MILITAR Y BANCARIO)
+    # 🔐 SISTEMA DE CIFRADO AES-256-GCM CON CLAVE DINÁMICA
     # ==============================================================================
     st.subheader(
         "⚙️ Controles de Transmisión Segura (AES-256-GCM Nivel Militar)"
@@ -642,7 +660,9 @@ else:
                 st.warning("Por favor, introduce un mensaje.")
             else:
                 try:
-                    codigo_seguro = cifrar_aes_gcm(msg_claro)
+                    # Usamos la clave activa de la barra lateral
+                    clave_actual = st.session_state.clave_secreta_actual
+                    codigo_seguro = cifrar_aes_gcm(msg_claro, clave_actual)
                     token_final = f"{codigo_seguro}∏∑"
 
                     st.success(
@@ -673,12 +693,14 @@ else:
                         )
                         st.stop()
 
-                    mensaje_descifrado = descifrar_aes_gcm(texto_trabajo)
+                    # Utiliza la clave activa en la barra lateral para descifrar
+                    clave_actual = st.session_state.clave_secreta_actual
+                    mensaje_descifrado = descifrar_aes_gcm(texto_trabajo, clave_actual)
                     st.success("¡Mensaje descifrado con éxito mediante AES-256-GCM!")
                     st.markdown(f"**Mensaje original:** `{mensaje_descifrado}`")
                 except Exception:
                     st.error(
-                        "Error crítico: El código cifrado fue alterado, la clave es incorrecta o no es válido."
+                        "Error crítico: El código cifrado fue alterado, la clave secreta en la barra lateral es incorrecta o no es válido."
                     )
 
     st.divider()
