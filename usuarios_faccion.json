@@ -9,8 +9,8 @@
     "Yoli": {
         "gmail": "yolandadelhoyo@gmail.com",
         "password": "1460",
-        "estado": "PENDIENTE",
-        "fecha_autorizacion": "",
+        "estado": "AUTORIZADO",
+        "fecha_autorizacion": "4 de agosto de 2026",
         "bloqueo_hasta": null
     }
 }
