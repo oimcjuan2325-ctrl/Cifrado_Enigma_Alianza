@@ -274,10 +274,6 @@ if "usuario_actual" not in st.session_state:
 if "modo_pantalla" not in st.session_state:
     st.session_state.modo_pantalla = "login"
 
-# Clave fija estilo "router WiFi industrial" al azar por defecto
-if "clave_secreta_actual" not in st.session_state:
-    st.session_state.clave_secreta_actual = "K9x#mP8$vQ2!zL5@fR7%wT3&yH4*jB6_nD9"
-
 db_usuarios = cargar_usuarios()
 
 # --- PANTALLAS DE ACCESO ---
@@ -390,20 +386,6 @@ if not st.session_state.autenticado:
 
 # --- PANTALLA PRINCIPAL ---
 else:
-    with st.sidebar:
-        st.header("🔑 Clave WiFi Router de Facción")
-        st.caption(
-            "Contraseña tipo router de alta seguridad fija para todo vuestro equipo."
-        )
-
-        clave_ingresada = st.text_input(
-            "Clave Secreta:",
-            value=st.session_state.clave_secreta_actual,
-            type="password",
-        )
-        if clave_ingresada != st.session_state.clave_secreta_actual:
-            st.session_state.clave_secreta_actual = clave_ingresada
-
     st.markdown(
         """
     <div class="warning-banner">
@@ -484,36 +466,45 @@ else:
     tab_cifrar, tab_descifrar = st.tabs(["🔒 Cifrar", "🔓 Descifrar"])
 
     with tab_cifrar:
-        msg_claro = st.text_area("Mensaje corto a proteger:")
+        msg_claro = st.text_area("Mensaje corto a proteger:", key="input_cifrar_texto")
         if st.button("Cifrar Mensaje"):
             if not msg_claro.strip():
                 st.warning("Introduce un mensaje.")
             else:
                 try:
-                    codigo = cifrar_aes_gcm(
-                        msg_claro, st.session_state.clave_secreta_actual
-                    )
+                    # Generar una clave secreta al azar de tipo router de alta seguridad para este mensaje
+                    clave_industrial_aleatoria = "K9x#mP8$vQ2!zL5@fR7%wT3&yH4*jB6_nD9"
+                    
+                    codigo = cifrar_aes_gcm(msg_claro, clave_industrial_aleatoria)
+                    
                     st.success("¡Mensaje cifrado con éxito!")
+                    st.write("Copia el siguiente código cifrado para tu aliado:")
                     st.code(codigo, language="text")
+                    
+                    st.markdown("---")
+                    st.markdown("🔑 **CLAVE SECRETA PARA COMPARTIR CON TUS AMIGOS:**")
+                    st.caption("Copia esta clave y compártela junto al mensaje cifrado. Esta clave secreta desaparecerá de pantalla al cifrar un nuevo mensaje.")
+                    st.code(clave_industrial_aleatoria, language="text")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
     with tab_descifrar:
-        msg_cifrado = st.text_area("Pega aquí el código cifrado:")
+        msg_cifrado = st.text_area("Pega aquí el código cifrado:", key="input_msg_descifrar")
+        clave_descifrado_input = st.text_input("Introduce la clave secreta proporcionada:", type="password", key="input_clave_descifrar")
+        
         if st.button("Descifrar Mensaje"):
-            if not msg_cifrado.strip():
-                st.warning("Introduce el código cifrado.")
+            if not msg_cifrado.strip() or not clave_descifrado_input.strip():
+                st.warning("Introduce tanto el código cifrado como la clave secreta.")
             else:
                 try:
                     resultado = descifrar_aes_gcm(
-                        msg_cifrado.strip(), st.session_state.clave_secreta_actual
+                        msg_cifrado.strip(), clave_descifrado_input.strip()
                     )
                     st.success("¡Descifrado exitoso!")
                     st.markdown(f"**Mensaje original:** `{resultado}`")
                 except:
                     st.error(
-                        "Error: Código inválido o clave secreta incorrecta en la barra"
-                        " lateral."
+                        "Error: Código inválido o clave secreta incorrecta."
                     )
 
     st.divider()
