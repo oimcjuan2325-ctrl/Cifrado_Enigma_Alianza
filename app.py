@@ -331,7 +331,7 @@ if not st.session_state.autenticado:
         st.markdown(
             """
             <div class="permanent-warning">
-                ⚠️ ADVERTENCIA: Bloqueará su cuenta durante 5 días (120 horas).
+                ⚠️ ADVERTENCIA: Bloqueará su cuenta durante 5 días .
             </div>
             """,
             unsafe_allow_html=True,
@@ -488,7 +488,7 @@ else:
     st.divider()
 
     st.subheader(
-        "⚙️ Cifrado y Descifrado con el Número Áureo (Automático y Sin Claves)"
+        "⚙️ Cifrado y Descifrado"
     )
     tab_cifrar, tab_descifrar = st.tabs(["🔒 Cifrar", "🔓 Descifrar"])
 
