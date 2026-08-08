@@ -1,14 +1,15 @@
-import base64
 from datetime import datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
+import base64
 import json
 import os
 import smtplib
 import time
 import urllib.request
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-import streamlit as str_module
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import streamlit as st
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
@@ -199,32 +200,42 @@ def enviar_confirmacion_usuario(gmail_destino, usuario, password, estado):
     enviar_email(gmail_destino, asunto, cuerpo)
 
 
-# --- SISTEMA CRIPTOGRÁFICO ---
-def obtener_clave_bytes(clave_texto):
-    clave_bytes = clave_texto.encode("utf-8")
-    if len(clave_bytes) < 32:
-        clave_bytes = clave_bytes.ljust(32, b"0")
-    elif len(clave_bytes) > 32:
-        clave_bytes = clave_bytes[:32]
-    return clave_bytes
+# ==============================================================================
+# 🌀 MOTOR CRIPTOGRÁFICO BASADO EN EL NÚMERO MÁS IRRACIONAL (PHI: 1.618...)
+# ==============================================================================
+def obtener_motor_irracional():
+    """Deriva de forma interna la clave criptográfica usando
+
+    la constante exacta del Número Áureo (el más irracional).
+    """
+    # El número irracional más seguro y perfecto incrustado directamente como clave del sistema
+    numero_ureo_mas_irracional = (
+        "1.61803398874989484820458683436563811772030917980576286213544862270526046"
+    )
+    sal_sistema = b"faccion_phi_absoluto_seed"
+
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=sal_sistema,
+        iterations=100000,
+    )
+    clave_derivada = base64.urlsafe_b64encode(
+        kdf.derive(numero_ureo_mas_irracional.encode("utf-8"))
+    )
+    return Fernet(clave_derivada)
 
 
-def cifrar_aes_gcm(texto, clave_texto):
-    clave = obtener_clave_bytes(clave_texto)
-    aesgcm = AESGCM(clave)
-    nonce = os.urandom(12)
-    datos_cifrados = aesgcm.encrypt(nonce, texto.encode("utf-8"), None)
-    paquete = nonce + datos_cifrados
-    return base64.urlsafe_b64encode(paquete).decode("utf-8")
+def cifrar_automatico(texto_claro):
+    """Cifra usando el número áureo de fondo de forma completamente transparente."""
+    f = obtener_motor_irracional()
+    return f.encrypt(texto_claro.encode("utf-8")).decode("utf-8")
 
 
-def descifrar_aes_gcm(texto_cifrado, clave_texto):
-    clave = obtener_clave_bytes(clave_texto)
-    aesgcm = AESGCM(clave)
-    paquete = base64.urlsafe_b64decode(texto_cifrado.encode("utf-8"))
-    nonce = paquete[:12]
-    datos_cifrados = paquete[12:]
-    return aesgcm.decrypt(nonce, datos_cifrados, None).decode("utf-8")
+def descifrar_automatico(texto_cifrado):
+    """Descifra usando exactamente el mismo número áureo de fondo."""
+    f = obtener_motor_irracional()
+    return f.decrypt(texto_cifrado.encode("utf-8")).decode("utf-8")
 
 
 # --- ESTILOS CSS ---
@@ -332,7 +343,11 @@ if not st.session_state.autenticado:
         perm_user = st.text_input("Usuario:", key="p_user")
         perm_pass = st.text_input("Contraseña:", type="password", key="p_pass")
         if st.button("Ejecutar cierre"):
-            if perm_user in db_usuarios and db_usuarios[perm_user]["gmail"] == perm_gmail and db_usuarios[perm_user]["password"] == perm_pass:
+            if (
+                perm_user in db_usuarios
+                and db_usuarios[perm_user]["gmail"] == perm_gmail
+                and db_usuarios[perm_user]["password"] == perm_pass
+            ):
                 db_usuarios[perm_user]["bloqueo_hasta"] = (
                     datetime.now() + timedelta(hours=120)
                 ).isoformat()
@@ -364,7 +379,10 @@ if not st.session_state.autenticado:
                     ):
                         st.error("Cuenta bloqueada temporalmente.")
                         st.stop()
-                if usr_data["password"] == p_login and usr_data["estado"] == "AUTORIZADO":
+                if (
+                    usr_data["password"] == p_login
+                    and usr_data["estado"] == "AUTORIZADO"
+                ):
                     st.session_state.autenticado = True
                     st.session_state.usuario_actual = u_login
                     st.rerun()
@@ -400,11 +418,13 @@ else:
 
     if st.session_state.usuario_actual == ADMIN_USER:
         with st.expander("👑 PANEL DE LÍDER", expanded=True):
-            tab_pend, tab_aut, tab_no_aut = st.tabs([
-                "⏳ Pendientes",
-                "✅ Autorizadas",
-                "❌ Rechazadas",
-            ])
+            tab_pend, tab_aut, tab_no_aut = st.tabs(
+                [
+                    "⏳ Pendientes",
+                    "✅ Autorizadas",
+                    "❌ Rechazadas",
+                ]
+            )
             with tab_pend:
                 pendientes = {
                     u: d
@@ -421,10 +441,15 @@ else:
                         with c2:
                             if st.button("Autorizar", key=f"aut_{usr}"):
                                 db_usuarios[usr]["estado"] = "AUTORIZADO"
-                                db_usuarios[usr]["fecha_autorizacion"] = obtener_fecha_actual()
+                                db_usuarios[usr][
+                                    "fecha_autorizacion"
+                                ] = obtener_fecha_actual()
                                 guardar_usuarios(db_usuarios)
                                 enviar_confirmacion_usuario(
-                                    data["gmail"], usr, data["password"], "AUTORIZADO"
+                                    data["gmail"],
+                                    usr,
+                                    data["password"],
+                                    "AUTORIZADO",
                                 )
                                 st.rerun()
                         with c3:
@@ -432,7 +457,10 @@ else:
                                 db_usuarios[usr]["estado"] = "RECHAZADO"
                                 guardar_usuarios(db_usuarios)
                                 enviar_confirmacion_usuario(
-                                    data["gmail"], usr, data["password"], "RECHAZADO"
+                                    data["gmail"],
+                                    usr,
+                                    data["password"],
+                                    "RECHAZADO",
                                 )
                                 st.rerun()
 
@@ -462,49 +490,47 @@ else:
 
     st.divider()
 
-    st.subheader("⚙️ Cifrado y Descifrado Optimizado")
+    st.subheader(
+        "⚙️ Cifrado y Descifrado con el Número Áureo (Automático y Sin Claves)"
+    )
     tab_cifrar, tab_descifrar = st.tabs(["🔒 Cifrar", "🔓 Descifrar"])
 
     with tab_cifrar:
-        msg_claro = st.text_area("Mensaje corto a proteger:", key="input_cifrar_texto")
-        if st.button("Cifrar Mensaje"):
+        msg_claro = st.text_area(
+            "Mensaje a proteger:", key="input_cifrar_texto"
+        )
+        if st.button("Cifrar con Número Áureo"):
             if not msg_claro.strip():
                 st.warning("Introduce un mensaje.")
             else:
                 try:
-                    # Generar una clave secreta al azar de tipo router de alta seguridad para este mensaje
-                    clave_industrial_aleatoria = "K9x#mP8$vQ2!zL5@fR7%wT3&yH4*jB6_nD9"
-                    
-                    codigo = cifrar_aes_gcm(msg_claro, clave_industrial_aleatoria)
-                    
-                    st.success("¡Mensaje cifrado con éxito!")
-                    st.write("Copia el siguiente código cifrado para tu aliado:")
-                    st.code(codigo, language="text")
-                    
-                    st.markdown("---")
-                    st.markdown("🔑 **CLAVE SECRETA PARA COMPARTIR CON TUS AMIGOS:**")
-                    st.caption("Copia esta clave y compártela junto al mensaje cifrado. Esta clave secreta desaparecerá de pantalla al cifrar un nuevo mensaje.")
-                    st.code(clave_industrial_aleatoria, language="text")
+                    codigo_cifrado = cifrar_automatico(msg_claro)
+                    st.success(
+                        "¡Mensaje cifrado mediante la constante del número más irracional!"
+                    )
+                    st.write("Resultado cifrado:")
+                    st.code(codigo_cifrado, language="text")
+                    st.caption(
+                        "Clave aplicada de forma totalmente autónoma por el sistema."
+                    )
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error al cifrar: {e}")
 
     with tab_descifrar:
-        msg_cifrado = st.text_area("Pega aquí el código cifrado:", key="input_msg_descifrar")
-        clave_descifrado_input = st.text_input("Introduce la clave secreta proporcionada:", type="password", key="input_clave_descifrar")
-        
-        if st.button("Descifrar Mensaje"):
-            if not msg_cifrado.strip() or not clave_descifrado_input.strip():
-                st.warning("Introduce tanto el código cifrado como la clave secreta.")
+        msg_cifrado_input = st.text_area(
+            "Pega aquí el código cifrado:", key="input_msg_descifrar"
+        )
+        if st.button("Descifrar con Número Áureo"):
+            if not msg_cifrado_input.strip():
+                st.warning("Introduce el código cifrado.")
             else:
                 try:
-                    resultado = descifrar_aes_gcm(
-                        msg_cifrado.strip(), clave_descifrado_input.strip()
-                    )
+                    resultado = descifrar_automatico(msg_cifrado_input.strip())
                     st.success("¡Descifrado exitoso!")
                     st.markdown(f"**Mensaje original:** `{resultado}`")
-                except:
+                except Exception:
                     st.error(
-                        "Error: Código inválido o clave secreta incorrecta."
+                        "Error: Código inválido o corrupto (imposible revertir)."
                     )
 
     st.divider()
