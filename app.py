@@ -208,7 +208,6 @@ def obtener_motor_irracional():
 
     la constante exacta del Número Áureo (el más irracional).
     """
-    # El número irracional más seguro y perfecto incrustado directamente como clave del sistema
     numero_ureo_mas_irracional = (
         "1.61803398874989484820458683436563811772030917980576286213544862270526046"
     )
@@ -227,13 +226,11 @@ def obtener_motor_irracional():
 
 
 def cifrar_automatico(texto_claro):
-    """Cifra usando el número áureo de fondo de forma completamente transparente."""
     f = obtener_motor_irracional()
     return f.encrypt(texto_claro.encode("utf-8")).decode("utf-8")
 
 
 def descifrar_automatico(texto_cifrado):
-    """Descifra usando exactamente el mismo número áureo de fondo."""
     f = obtener_motor_irracional()
     return f.decrypt(texto_cifrado.encode("utf-8")).decode("utf-8")
 
@@ -499,7 +496,7 @@ else:
         msg_claro = st.text_area(
             "Mensaje a proteger:", key="input_cifrar_texto"
         )
-        if st.button("Cifrar con Número Áureo"):
+        if st.button("Cifrar"):
             if not msg_claro.strip():
                 st.warning("Introduce un mensaje.")
             else:
@@ -520,7 +517,7 @@ else:
         msg_cifrado_input = st.text_area(
             "Pega aquí el código cifrado:", key="input_msg_descifrar"
         )
-        if st.button("Descifrar con Número Áureo"):
+        if st.button("Descifrar"):
             if not msg_cifrado_input.strip():
                 st.warning("Introduce el código cifrado.")
             else:
